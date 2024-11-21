@@ -1,3 +1,13 @@
+# ACOReAl
+
+Build with:
+
+```bash
+$ mkdir build && cd build
+$ cmake -DLLVM_ENABLE_PROJECTS="clang;compiler-rt" -DCMAKE_BUILD_TYPE=Release -DLLVM_USE_LINKER=lld -S llvm -G "Unix Makefiles" ../llvm 
+$ make install -j$(nrpoc)
+```
+
 # The LLVM Compiler Infrastructure
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/llvm/llvm-project/badge)](https://securityscorecards.dev/viewer/?uri=github.com/llvm/llvm-project)

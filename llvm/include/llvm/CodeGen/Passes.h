@@ -172,6 +172,9 @@ namespace llvm {
   /// Basic register allocator.
   extern char &RABasicID;
 
+  /// ACO register allocator.
+  extern char &RAAcoID;
+
   /// VirtRegRewriter pass. Rewrite virtual registers to physical registers as
   /// assigned in VirtRegMap.
   extern char &VirtRegRewriterID;

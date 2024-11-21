@@ -250,6 +250,7 @@ void initializePromoteLegacyPassPass(PassRegistry &);
 void initializeRABasicPass(PassRegistry &);
 void initializePseudoProbeInserterPass(PassRegistry &);
 void initializeRAGreedyPass(PassRegistry &);
+void initializeRAAcoPass(PassRegistry&);
 void initializeReachingDefAnalysisPass(PassRegistry &);
 void initializeReassociateLegacyPassPass(PassRegistry &);
 void initializeRegAllocEvictionAdvisorAnalysisPass(PassRegistry &);

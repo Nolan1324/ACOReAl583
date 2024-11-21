@@ -179,6 +179,7 @@ add_llvm_component_library(LLVMCodeGen
   RDFLiveness.cpp
   RDFRegisters.cpp
   ReachingDefAnalysis.cpp
+  RegAllocACO.cpp
   RegAllocBase.cpp
   RegAllocBasic.cpp
   RegAllocEvictionAdvisor.cpp
