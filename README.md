@@ -5,7 +5,8 @@ Build with:
 ```bash
 $ mkdir build && cd build
 $ cmake -DLLVM_ENABLE_PROJECTS="clang;compiler-rt" -DCMAKE_BUILD_TYPE=Release -DLLVM_USE_LINKER=lld -S llvm -G "Unix Makefiles" ../llvm 
-$ make install -j$(nrpoc)
+$ make install -j$(nproc)
+$ make install -j$(sysctl -n hw.physicalcpu)  # mac alternative
 ```
 
 # The LLVM Compiler Infrastructure
