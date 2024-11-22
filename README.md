@@ -9,6 +9,13 @@ $ make install -j$(nproc)
 $ make install -j$(sysctl -n hw.physicalcpu)  # mac alternative
 ```
 
+Or you can utilize some make commands!
+```bash
+make build  # to build
+make run-aco  # run aco (or use "basic" or "greedy" or other pass)
+```
+
+
 # The LLVM Compiler Infrastructure
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/llvm/llvm-project/badge)](https://securityscorecards.dev/viewer/?uri=github.com/llvm/llvm-project)
