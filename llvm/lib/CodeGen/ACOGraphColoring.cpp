@@ -1,3 +1,4 @@
+#include <iostream>
 #include <vector>
 #include <cmath>
 #include <limits>
@@ -16,7 +17,23 @@ struct Solution {
 
     Solution(int numVertices, int initialColor = -1)
         : vertexColors(numVertices, initialColor) {}
+    
+    Solution(const Solution& other) = default;  // Copy constructor
+    Solution& operator=(const Solution& other) = default;  // Copy assignment operator
+    Solution(Solution&& other) = default;  // Move constructor
+    Solution& operator=(Solution&& other) = default;  // Move assignment operator
+    ~Solution() = default;  // Destructor
 };
+
+void printSolution(const Solution& solution) {
+    cout << "Vertex colors: ";
+    for (int color : solution.vertexColors) {
+        cout << color << " ";
+    }
+    cout << endl;
+    cout << "Conflicting edges: " << solution.conflictingEdges << endl;
+    cout << "Conflicting vertices: " << solution.conflictingVertices << endl << endl;
+}
 
 struct Parameters {
     double alpha;
@@ -32,7 +49,7 @@ struct Parameters {
 
 
 void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const std::vector<std::vector<double>>& pheromones);
-void reactTabucol(Solution& solution, const Graph& graph, int k, Solution initialSolution);
+void reactTabucol(Solution& solution);
 void updatePheromones(const Graph& graph, std::vector<std::vector<double>>& pheromones, Parameters& params, const Solution& colonyBest, const Solution& antBest, int cycle, int& pheroCounter) {
     // udpdate pheromone scheme 3
     if (cycle % params.gap == 0) {
@@ -57,13 +74,12 @@ void updatePheromones(const Graph& graph, std::vector<std::vector<double>>& pher
 }
 
 void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
-    auto nVertices = graph.size();
-    vector<vector<double>> pheromones(nVertices, vector<double>(nVertices, 1.0));
+    vector<vector<double>> pheromones(params.numVertices, vector<double>(params.numVertices, 1.0));
     
-    int bestSolutionValue = numeric_limits<int>::infinity();
+    int bestSolutionValue = numeric_limits<int>::max();
     Solution colonyBest(params.numVertices);
-    for (int u = 0; u < nVertices; ++u) {
-        for (int v = 0; v < nVertices; ++v) {
+    for (int u = 0; u < params.numVertices; ++u) {
+        for (int v = 0; v < params.numVertices; ++v) {
             if (graph[u][v]) {
                 pheromones[u][v] = 0; // Set to 0 if an edge exists between u and v
             }
@@ -76,29 +92,33 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
     auto start = std::chrono::steady_clock::now(); // Record the start time
 
     while (cycles < params.maxCycles && bestSolutionValue > 0 && std::chrono::steady_clock::now() - start < duration) {
-        int bestCycleValue = std::numeric_limits<int>::infinity();
+        int bestAntValue = numeric_limits<int>::max();
         Solution antBest(params.numVertices);
         for (int ant = 1; ant <= params.numAnts; ++ant) {
             Solution solution(params.numVertices);
             antFixedK(solution, graph, params, pheromones);
-            // REACT_TABUCOL ... whatever that means...
-            if (solution.conflictingEdges == 0 || solution.conflictingEdges < bestSolutionValue) {
-                bestCycleValue = solution.conflictingEdges;
+            reactTabucol(solution);
+            
+            if (solution.conflictingEdges == 0 || solution.conflictingEdges < bestAntValue) {
+                bestAntValue = solution.conflictingEdges;
                 antBest = solution;
+                //cout << "TESTING TESTING" << endl;
                 // potential optimization
                 // bestCycleSolution.vertexColors = move(solution.vertexColors); // Move the vector
                 // bestCycleSolution.conflictingEdges = solution.conflictingEdges; // Move the conflictingEdges value
             }
         }
-        if (bestCycleValue < bestSolutionValue) {
+        if (bestAntValue < bestSolutionValue) {
+            //printSolution(antBest);
             colonyBest = antBest;
-            bestSolutionValue = bestCycleValue;
+            bestSolutionValue = bestAntValue;
         }
 
         updatePheromones(graph, pheromones, params, colonyBest, antBest, cycles, pheroCounter);
         --pheroCounter;
         ++cycles;
     }
+    solution = colonyBest;
 }
 
 // if this is a bottleneck can redo saturation storing
@@ -129,7 +149,8 @@ double pheromoneTrail(int vertex, int color, Solution& solution, const vector<ve
 }
 
 double heuristic(int vertex, int color, vector<vector<int>>& neighborsByColor) {
-    return 1 / neighborsByColor[vertex][color];
+    // Paper doesn't add 1 to denominator, repo does. Without adding one, gets /0 error
+    return 1 / (neighborsByColor[vertex][color] + 1);
 }
 
 double assignmentWeight(int vertex, int color, Parameters& params, vector<vector<int>>& neighborsByColor, Solution& solution, const vector<vector<double>>& pheromones) {
@@ -157,7 +178,7 @@ void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const
     while (numUncolored > 0) {
         int highestSaturation = -1;
         int chosenVertex = -1;
-        for (size_t v = 0; v < params.numVertices; ++v) {
+        for (int v = 0; v < params.numVertices; ++v) {
             if (solution.vertexColors[v] != -1) {
                 continue;
             }
@@ -167,63 +188,65 @@ void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const
                 chosenVertex = v;
                 highestSaturation = sat;
             }
+        }
+        int color = bestColor(chosenVertex, params, neighborsByColor, solution, pheromones);
+        solution.vertexColors[chosenVertex] = color;
 
-            int color = bestColor(chosenVertex, params, neighborsByColor, solution, pheromones);
-            solution.vertexColors[chosenVertex] = color;
-
-            for (int u = 0; u < params.numVertices; ++u) {
-                if (graph[u][v]) {
-                    ++neighborsByColor[u][color];
-                    if (solution.vertexColors[u] == color)  {
-                        ++solution.conflictingEdges;
-                    }
+        for (int u = 0; u < params.numVertices; ++u) {
+            if (graph[u][chosenVertex]) {
+                ++neighborsByColor[u][color];
+                if (solution.vertexColors[u] == color)  {
+                    ++solution.conflictingEdges;
                 }
             }
-            --numUncolored;
         }
+        --numUncolored;
     }
 }
 
-Solution reactTabucol(const Graph& graph, int k, Solution initialSolution) {
-    // Implement reactive tabu search to minimize conflicts in the solution
-    Solution optimizedSolution = initialSolution;
-    // Pseudocode logic here...
-    return optimizedSolution;
-}
-
-void updatePheromones(std::vector<std::vector<double>>& pheromones, const Solution& bestSolution, double evaporationRate) {
-    // Update pheromone values based on the best solution
-    for (int v = 0; v < bestSolution.vertexColors.size(); ++v) {
-        int color = bestSolution.vertexColors[v];
-        pheromones[v][color] += 1.0 / (bestSolution.conflicts + 1); // Reinforce with conflict-based weight
-    }
+void reactTabucol(Solution& solution) {
 }
 
 
-void testColorAnt3RT() {
-    // Test Case 1: Triangle Graph
+int main() {
+    // Test Case 1: Simple Bipartite Graph
     Graph graph1 = {
+        {0, 1, 1, 0},
+        {1, 0, 1, 1},
+        {1, 1, 0, 1},
+        {0, 1, 1, 0}
+    };
+    Parameters params1 = {3.0, 16.0, 0.7, 100.0, 4, 2, 625, 80, static_cast<int>(sqrt(625))};
+    Solution solution1(4);
+    ColorAnt3_RT(solution1, graph1, params1);
+    cout << "Test Case 1: Simple Bipartite Graph" << endl;
+    printSolution(solution1);
+
+    // Test Case 2: Triangle Graph (K3)
+    Graph graph2 = {
         {0, 1, 1},
         {1, 0, 1},
         {1, 1, 0}
     };
-    int k1 = 3, maxCycles1 = 50, maxTime1 = 1000, nAnts1 = 5;
-    Solution result1 = ColorAnt3_RT(graph1, k1, maxCycles1, maxTime1, nAnts1);
-    std::cout << "Test Case 1 - Triangle Graph: Conflicts = " << result1.conflicts << "\n";
+    Parameters params2 = {3.0, 16.0, 0.7, 100.0, 3, 3, 625, 80, static_cast<int>(sqrt(625))};
+    Solution solution2(3);
+    ColorAnt3_RT(solution2, graph2, params2);
+    cout << "Test Case 2: Triangle Graph (K3)" << endl;
+    printSolution(solution2);
 
-    // Test Case 2: Square Graph
-    Graph graph2 = {
-        {0, 1, 0, 1},
-        {1, 0, 1, 0},
-        {0, 1, 0, 1},
-        {1, 0, 1, 0}
+    // Test Case 3: Complete Graph (K5)
+    Graph graph3 = {
+        {0, 1, 1, 1, 1},
+        {1, 0, 1, 1, 1},
+        {1, 1, 0, 1, 1},
+        {1, 1, 1, 0, 1},
+        {1, 1, 1, 1, 0}
     };
-    int k2 = 2, maxCycles2 = 50, maxTime2 = 1000, nAnts2 = 10;
-    Solution result2 = ColorAnt3_RT(graph2, k2, maxCycles2, maxTime2, nAnts2);
-    std::cout << "Test Case 2 - Square Graph: Conflicts = " << result2.conflicts << "\n";
-}
+    Parameters params3 = {3.0, 16.0, 0.7, 100.0, 5, 5, 625, 80, static_cast<int>(sqrt(625))};
+    Solution solution3(5);
+    ColorAnt3_RT(solution3, graph3, params3);
+    cout << "Test Case 3: Complete Graph (K5)" << endl;
+    printSolution(solution3);
 
-int main() {
-    testColorAnt3RT();
     return 0;
 }
