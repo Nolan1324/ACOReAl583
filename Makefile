@@ -21,6 +21,9 @@ build:
 		make install -j$$(nproc); \
 	fi
 
+llc:
+	sudo cmake --build $(BUILD_DIR) --target install-llc -j$(nproc)
+
 run:
 	clang -emit-llvm -c test.c -Xclang -disable-O0-optnone -o test.bc
 	opt test.bc -o test.opt.bc > /dev/null
