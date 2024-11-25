@@ -49,6 +49,8 @@ namespace {
   };
 }
 
+using ACOColoringResult = std::map<LiveInterval*, std::optional<MCRegister>>;
+
 namespace {
 /// RAAco provides a minimal implementation of the aco register allocation
 /// algorithm. It prioritizes live virtual registers by spill weight and spills
@@ -118,6 +120,12 @@ public:
   // was successful, and append any new spilled/split intervals to splitLVRs.
   bool spillInterferences(const LiveInterval &VirtReg, MCRegister PhysReg,
                           SmallVectorImpl<Register> &SplitVRegs);
+
+  /* ACO */
+  ACOColoringResult doACOColoring();
+  // Returns true if a register was spilled, false otherwise
+  bool allocateACOColors(const ACOColoringResult& coloring);
+  bool isValidPhysReg(MCRegister physReg, LiveInterval* virtReg);
 
   static char ID;
 };
@@ -305,6 +313,87 @@ MCRegister RAAco::selectOrSplit(const LiveInterval &VirtReg,
   return 0;
 }
 
+ACOColoringResult RAAco::doACOColoring() {
+  // TODO: actually integrate with coloring implementation
+
+  // output of coloring, index is VR #, value is physical reg number (color)
+  std::vector<int> colors{216, 217, 218}; // this is a valid coloring for test.bc on my mac
+
+  ACOColoringResult coloring{};
+
+  // convert output of ACO to useful format for actual allocation
+  for (unsigned int i = 0; i < colors.size(); ++i) {
+    Register r{Register::index2VirtReg(i)};
+    if (MRI->reg_nodbg_empty(r)) {
+      LLVM_DEBUG(dbgs() << "Encountered unused virtual reg in aco graph: " << r << '\n');
+      continue; // is this ok, to just exclude it?
+    }
+
+    LiveInterval* virtReg{&LIS->getInterval(r)};
+
+    std::optional<MCPhysReg> physReg{std::nullopt};
+    if (colors[i] >= 0) {
+      // negative color will indicate a spill
+      physReg = MCRegister{static_cast<MCPhysReg>(colors[i])};
+    }
+
+    coloring[virtReg] = physReg;
+  }
+
+  return coloring;
+}
+
+bool RAAco::isValidPhysReg(MCRegister physReg, LiveInterval* virtReg) {
+  const TargetRegisterClass *rc = MRI->getRegClass(virtReg->reg());
+  ArrayRef<MCPhysReg> allocOrder = RegClassInfo.getOrder(rc);
+
+  LLVM_DEBUG(dbgs() << "Enumerating valid physical regs for VR " << Register::virtReg2Index(virtReg->reg()) << ": ");
+
+  for (auto reg : allocOrder) {
+    LLVM_DEBUG(dbgs() << reg << ", ");
+    if (reg == physReg) {
+      LLVM_DEBUG(dbgs() << "<-- Found!\n");
+      return true;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "; Not Found!\n");
+  return false;
+}
+
+bool RAAco::allocateACOColors(const ACOColoringResult& coloring) {
+  bool spilled{false};
+  for (const auto&[virtReg, physReg] : coloring) {
+    // extra check for duplicate assignment
+    if (VRM->hasPhys(virtReg->reg())) {
+      LLVM_DEBUG(dbgs() << "VR " << Register::virtReg2Index(virtReg->reg())
+                        << "already assigned to physical reg " << VRM->getPhys(virtReg->reg())
+                        << "\n");
+
+      continue;
+    }
+
+    if (physReg.has_value()) {
+      // extra check for valid reg
+      if (!isValidPhysReg(*physReg, virtReg)) {
+        errs() << "Invalid physical register (" << *physReg << ") for VR (" <<
+            Register::virtReg2Index(virtReg->reg()) << ") was in coloring output!\n";
+      }
+
+      VRM->assignVirt2Phys(virtReg->reg(), *physReg);
+      // TODO: if we do end up using the matrix, use this INSTEAD of the above call
+//      Matrix->assign(*virtReg, *physReg);
+    } else {
+      // need to spill
+      spilled = true;
+//      Matrix->unassign(*virtReg);
+      // TODO: figure out how to use LRE + Spiller
+    }
+  }
+
+  return spilled;
+}
+
 bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   LLVM_DEBUG(dbgs() << "********** ACO REGISTER ALLOCATION **********\n"
                     << "********** Function: " << mf.getName() << '\n');
@@ -321,7 +410,16 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
 
   SpillerInstance.reset(createInlineSpiller(*this, *MF, *VRM, VRAI));
 
-  allocatePhysRegs();
+  // ACO Register Allocation
+  bool spillsOccurred{false};
+  ACOColoringResult coloring;
+
+  do {
+    coloring = doACOColoring();
+    spillsOccurred = allocateACOColors(coloring);
+    break; // TODO: remove so we actually re-build and re-color graph after spilling
+  } while (spillsOccurred);
+
   postOptimization();
 
   // Diagnostic output before rewriting
