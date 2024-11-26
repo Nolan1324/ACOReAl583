@@ -33,6 +33,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include <queue>
+#include <sstream>
 
 using namespace llvm;
 
@@ -50,6 +51,23 @@ namespace {
 }
 
 using ACOColoringResult = std::map<LiveInterval*, std::optional<MCRegister>>;
+using Graph = std::vector<std::vector<bool>>;
+
+namespace {
+  Graph makeEmptyGraph(unsigned int n) {
+    return std::vector<std::vector<bool>>(n, std::vector<bool>(n, false));
+  }
+
+  void printGraph(const Graph &graph) {
+    LLVM_DEBUG(dbgs() << "Interference graph\n");
+    for(const auto &row : graph) {
+      for(bool v : row) {
+        LLVM_DEBUG(dbgs() << (v ? 1 : 0) << " ");
+      }
+      LLVM_DEBUG(dbgs() << "\n");
+    }
+  }
+}
 
 namespace {
 /// RAAco provides a minimal implementation of the aco register allocation
@@ -122,6 +140,7 @@ public:
                           SmallVectorImpl<Register> &SplitVRegs);
 
   /* ACO */
+  Graph makeGraph();
   ACOColoringResult doACOColoring();
   // Returns true if a register was spilled, false otherwise
   bool allocateACOColors(const ACOColoringResult& coloring);
@@ -313,6 +332,27 @@ MCRegister RAAco::selectOrSplit(const LiveInterval &VirtReg,
   return 0;
 }
 
+Graph RAAco::makeGraph() {
+  unsigned int numVirtRegs = MRI->getNumVirtRegs();  
+  Graph graph = makeEmptyGraph(numVirtRegs);
+
+  for (unsigned i = 0; i < numVirtRegs; ++i) {
+    Register Reg1 = Register::index2VirtReg(i);
+    if (MRI->reg_nodbg_empty(Reg1))
+      continue;
+    for (unsigned j = i+1; j < numVirtRegs; ++j) {
+      Register Reg2 = Register::index2VirtReg(j);
+      if (MRI->reg_nodbg_empty(Reg2))
+        continue;
+      if(LIS->getInterval(Reg1).overlaps(LIS->getInterval(Reg2))) {
+        graph[i][j] = true;
+      }
+    }
+  }
+
+  return graph;
+}
+
 ACOColoringResult RAAco::doACOColoring() {
   // TODO: actually integrate with coloring implementation
 
@@ -413,6 +453,9 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   // ACO Register Allocation
   bool spillsOccurred{false};
   ACOColoringResult coloring;
+
+  Graph graph = makeGraph();
+  printGraph(graph);
 
   do {
     coloring = doACOColoring();
