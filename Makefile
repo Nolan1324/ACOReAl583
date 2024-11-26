@@ -22,7 +22,7 @@ build:
 	fi
 
 llc:
-	sudo cmake --build $(BUILD_DIR) --target install-llc -j$(nproc)
+	sudo cmake --build $(BUILD_DIR) --target install-llc -j$$(nproc)
 
 run:
 	clang -emit-llvm -c test.c -Xclang -disable-O0-optnone -o test.bc
