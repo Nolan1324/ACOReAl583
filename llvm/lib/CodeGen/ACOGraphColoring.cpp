@@ -207,6 +207,36 @@ void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const
 void reactTabucol(Solution& solution) {
 }
 
+void ColorAnt3WithSpilling(Solution& solution, const Graph& graph, Parameters& params) {
+    ColorAnt3_RT(solution, graph, params);
+    while (true) {
+        vector<int> conflictCount(graph.size(), 0);
+        for (size_t u = 0; u < graph.size(); ++u) {
+            for (size_t v = 0; v < graph[u].size(); ++v) {
+                if (graph[u][v] && solution.vertexColors[u] != -1 && solution.vertexColors[u] == solution.vertexColors[v]) {
+                    conflictCount[u]++;
+                    conflictCount[v]++;
+                }
+            }
+        }
+
+        int maxConflicts = 0;
+        int spillNode = -1;
+        for (size_t i = 0; i < conflictCount.size(); ++i) {
+            if (conflictCount[i] > maxConflicts) {
+                maxConflicts = conflictCount[i];
+                spillNode = i;
+            }
+        }
+
+        if (spillNode == -1) {
+            break;
+        }
+        solution.vertexColors[spillNode] = -1;
+    }
+    
+}
+
 
 int main() {
     // Test Case 1: Simple Bipartite Graph
@@ -218,7 +248,7 @@ int main() {
     };
     Parameters params1 = {3.0, 16.0, 0.7, 100.0, 4, 2, 625, 80, static_cast<int>(sqrt(625))};
     Solution solution1(4);
-    ColorAnt3_RT(solution1, graph1, params1);
+    ColorAnt3WithSpilling(solution1, graph1, params1);
     cout << "Test Case 1: Simple Bipartite Graph" << endl;
     printSolution(solution1);
 
@@ -228,9 +258,9 @@ int main() {
         {1, 0, 1},
         {1, 1, 0}
     };
-    Parameters params2 = {3.0, 16.0, 0.7, 100.0, 3, 3, 625, 80, static_cast<int>(sqrt(625))};
+    Parameters params2 = {3.0, 16.0, 0.7, 100.0, 3, 2, 625, 80, static_cast<int>(sqrt(625))};
     Solution solution2(3);
-    ColorAnt3_RT(solution2, graph2, params2);
+    ColorAnt3WithSpilling(solution2, graph2, params2);
     cout << "Test Case 2: Triangle Graph (K3)" << endl;
     printSolution(solution2);
 
@@ -242,9 +272,9 @@ int main() {
         {1, 1, 1, 0, 1},
         {1, 1, 1, 1, 0}
     };
-    Parameters params3 = {3.0, 16.0, 0.7, 100.0, 5, 5, 625, 80, static_cast<int>(sqrt(625))};
+    Parameters params3 = {3.0, 16.0, 0.7, 100.0, 5, 4, 625, 80, static_cast<int>(sqrt(625))};
     Solution solution3(5);
-    ColorAnt3_RT(solution3, graph3, params3);
+    ColorAnt3WithSpilling(solution3, graph3, params3);
     cout << "Test Case 3: Complete Graph (K5)" << endl;
     printSolution(solution3);
 
