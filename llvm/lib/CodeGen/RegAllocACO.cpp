@@ -338,11 +338,18 @@ Graph RAAco::makeGraph() {
 
   for (unsigned i = 0; i < numVirtRegs; ++i) {
     Register Reg1 = Register::index2VirtReg(i);
-    if (MRI->reg_nodbg_empty(Reg1))
+    if (LIS->hasInterval(Reg1)) {
+      LLVM_DEBUG(dbgs() << printReg(Reg1, TRI) << "\n");
+    }
+    if (MRI->reg_nodbg_empty(Reg1) || !LIS->hasInterval(Reg1))
       continue;
-    for (unsigned j = i+1; j < numVirtRegs; ++j) {
+    for (unsigned j = 0; j < numVirtRegs; ++j) {
+      if (i == j) {
+        continue;
+      }
+
       Register Reg2 = Register::index2VirtReg(j);
-      if (MRI->reg_nodbg_empty(Reg2))
+      if (MRI->reg_nodbg_empty(Reg2) || !LIS->hasInterval(Reg1))
         continue;
       if(LIS->getInterval(Reg1).overlaps(LIS->getInterval(Reg2))) {
         graph[i][j] = true;
@@ -357,14 +364,15 @@ ACOColoringResult RAAco::doACOColoring() {
   // TODO: actually integrate with coloring implementation
 
   // output of coloring, index is VR #, value is physical reg number (color)
-  std::vector<int> colors{216, 217, 218}; // this is a valid coloring for test.bc on my mac
+  std::vector<int> colors{216, 239, -1, 267, 217, 218, 219, 220};
+//  std::vector<int> colors{208, 240, -1, 247, 217, 216, 217, 208}; // correct
 
   ACOColoringResult coloring{};
 
   // convert output of ACO to useful format for actual allocation
   for (unsigned int i = 0; i < colors.size(); ++i) {
     Register r{Register::index2VirtReg(i)};
-    if (MRI->reg_nodbg_empty(r)) {
+    if (MRI->reg_nodbg_empty(r) || !LIS->hasInterval(r)) {
       LLVM_DEBUG(dbgs() << "Encountered unused virtual reg in aco graph: " << r << '\n');
       continue; // is this ok, to just exclude it?
     }
@@ -387,6 +395,7 @@ bool RAAco::isValidPhysReg(MCRegister physReg, LiveInterval* virtReg) {
   const TargetRegisterClass *rc = MRI->getRegClass(virtReg->reg());
   ArrayRef<MCPhysReg> allocOrder = RegClassInfo.getOrder(rc);
 
+
   LLVM_DEBUG(dbgs() << "Enumerating valid physical regs for VR " << Register::virtReg2Index(virtReg->reg()) << ": ");
 
   for (auto reg : allocOrder) {
@@ -403,30 +412,43 @@ bool RAAco::isValidPhysReg(MCRegister physReg, LiveInterval* virtReg) {
 
 bool RAAco::allocateACOColors(const ACOColoringResult& coloring) {
   bool spilled{false};
-  for (const auto&[virtReg, physReg] : coloring) {
-    // extra check for duplicate assignment
-    if (VRM->hasPhys(virtReg->reg())) {
-      LLVM_DEBUG(dbgs() << "VR " << Register::virtReg2Index(virtReg->reg())
-                        << "already assigned to physical reg " << VRM->getPhys(virtReg->reg())
-                        << "\n");
+  for (unsigned int i = 0; i < MRI->getNumVirtRegs(); ++i) {
+    LLVM_DEBUG(dbgs() << "** VIRTUAL REGISTER " << i << " **\n");
+    Register vr{Register::index2VirtReg(i)};
+    const TargetRegisterClass *rc = MRI->getRegClass(vr);
+    ArrayRef<MCPhysReg> allocOrder = RegClassInfo.getOrder(rc);
 
-      continue;
+    for (auto reg : allocOrder) {
+      LLVM_DEBUG(dbgs() << reg << " ");
     }
+    LLVM_DEBUG(dbgs() << "\n");
+  }
 
+  LLVM_DEBUG(dbgs() << "REG UNITS FOR W0: ");
+  for (auto unit : TRI->regunits(208)) {
+    LLVM_DEBUG(dbgs() << unit << " ");
+  }
+  LLVM_DEBUG(dbgs() << "\n");
+
+  for (const auto&[virtReg, physReg] : coloring) {
     if (physReg.has_value()) {
       // extra check for valid reg
-      if (!isValidPhysReg(*physReg, virtReg)) {
-        errs() << "Invalid physical register (" << *physReg << ") for VR (" <<
-            Register::virtReg2Index(virtReg->reg()) << ") was in coloring output!\n";
-      }
+//      if (!isValidPhysReg(*physReg, virtReg)) {
+//        errs() << "Invalid physical register (" << *physReg << ") for VR ("
+//               << Register::virtReg2Index(virtReg->reg())
+//               << ") was in coloring output!\n";
+//      }
 
-      VRM->assignVirt2Phys(virtReg->reg(), *physReg);
+
+//      VRM->assignVirt2Phys(virtReg->reg(), *physReg);
+      LLVM_DEBUG(dbgs() << "Interference?: " << static_cast<int>(Matrix->checkInterference(*virtReg, *physReg)) << "\n");
+      Matrix->assign(*virtReg, *physReg);
       // TODO: if we do end up using the matrix, use this INSTEAD of the above call
-//      Matrix->assign(*virtReg, *physReg);
+      //      Matrix->assign(*virtReg, *physReg);
     } else {
       // need to spill
       spilled = true;
-//      Matrix->unassign(*virtReg);
+      //      Matrix->unassign(*virtReg);
       // TODO: figure out how to use LRE + Spiller
     }
   }
