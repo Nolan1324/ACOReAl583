@@ -292,15 +292,16 @@ int countConflictingVertices(const Solution& solution, const Graph& graph, const
 }
 
 void reactTabucol(Solution& solution, const Graph& graph, Parameters& params) {
-    int currentIteration = 0;
+    int currentIteration = 1;
     int tabuLength = params.numVertices / 10;
     vector<vector<int>> tabuTenure(params.numVertices, vector<int>(params.numColors, currentIteration));
-    vector<vector<int>> conflicts(params.numVertices, vector<int>(params.numColors, currentIteration));
+    vector<vector<int>> conflicts(params.numColors, vector<int>(params.numVertices, 0));
     countConflicts(conflicts, graph, solution, params);
     
     auto duration = std::chrono::duration<double>(params.maxTabucolTime);
     auto start = std::chrono::steady_clock::now();
 
+    // TODO: Create exit condition for if it's already a perfect solution
     while (currentIteration < params.maxTabulcolCycles && std::chrono::steady_clock::now() - start < duration) {
         vector<int> conflictingVertices;
         for (int i = 0; i < params.numVertices; i++) {
@@ -311,12 +312,16 @@ void reactTabucol(Solution& solution, const Graph& graph, Parameters& params) {
                 conflictingVertices.push_back(i);
             }
         }
-
         int bestValue = numeric_limits<int>::max();
         int bestVertex = -1;
         int bestColor = -1;
         for (int v: conflictingVertices) {
             for (int c = 0; c < params.numColors; c++) {
+                // If the virtual register cannot be assigned to this type of phisical register, skip it
+                if (!params.allowedColors[v][c]) {
+                    continue;
+                }
+
                 int newValue = solution.conflictingEdges + conflicts[c][v] - conflicts[solution.vertexColors[v]][v];
                 bool localBest = newValue <= bestValue;
                 bool tabu = tabuTenure[v][c] >= currentIteration;
@@ -330,8 +335,14 @@ void reactTabucol(Solution& solution, const Graph& graph, Parameters& params) {
         // TODO: Fix the following if to randomize if all choices are tabu
         bool allTabu = (bestVertex == -1);
         if (allTabu) {
-            int c = 0;
             int v = 0;
+            int c = 0;
+            while (!params.allowedColors[v][c]) {
+                c++;
+            }
+            // if (!params.allowedColors[v][c]) {
+            //     printf("baad\n");
+            // }
             bestValue = solution.conflictingEdges + conflicts[c][v] - conflicts[solution.vertexColors[v]][v];
             bestVertex = v;
             bestColor = c;
@@ -341,13 +352,13 @@ void reactTabucol(Solution& solution, const Graph& graph, Parameters& params) {
         LocalStep bestStep = {bestVertex, bestColor};
         int newTenure = currentIteration + tabuLength;
         updateSolution(solution, graph, params, bestStep, conflicts, tabuTenure, newTenure);
-
         // This is probably worth calculating elsewhere
         int numVertexConflicts = countConflictingVertices(solution, graph, params);
         dynamicTenureUpdate(tabuLength, numVertexConflicts);
         // TODO: Make reactive tenure work
         // reactiveTenureUpdate(tabuLength, currentIteration, 
         // int& totalConflicts, int& maxSolutionValue, int& minSolutionValue, const Parameters& params)
+        currentIteration++;
     }
 }
 
@@ -375,7 +386,7 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
         for (int ant = 1; ant <= params.numAnts; ++ant) {
             Solution solution(params.numVertices);
             antFixedK(solution, graph, params, pheromones);
-            //reactTabucol(solution, graph, params);
+            reactTabucol(solution, graph, params);
             
             if (solution.conflictingEdges == 0 || solution.conflictingEdges < bestAntValue) {
                 bestAntValue = optimizationFunction(solution);
@@ -508,26 +519,26 @@ void testCaseReal() {
         {1, 0, 0, 0, 0, 1, 0, 1},
         {1, 0, 0, 0, 0, 0, 1, 0}
     };
-    Graph allowed = {
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-    };
     // Graph allowed = {
-    //     {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    //     {0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    //     {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    //     {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    //     {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    //     {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    //     {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    //     {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
     // };
+    Graph allowed = {
+        {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+        {0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+        {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+        {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+        {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+        {0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+    };
     Parameters params(graph.size(), allowed[0].size());
     params.allowedColors = allowed;
     Solution solution(graph.size());
