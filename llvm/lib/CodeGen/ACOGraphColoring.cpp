@@ -6,11 +6,11 @@
 #include "math.h"
 #include <random>
 
+#include "ACOGraphColoring.h"
 
 // TODO: Register constrains
 
 using namespace std;
-using Graph = vector<vector<bool>>; // Adjacency matrix representation
 
 class LocalStep {
 public:
@@ -18,20 +18,6 @@ public:
     int color;
 };
 
-struct Solution {
-    vector<int> vertexColors; // Color assignments for vertices
-    int conflictingEdges = 0;
-    int conflictingVertices = 0;
-
-    Solution(int numVertices, int initialColor = -1)
-        : vertexColors(numVertices, initialColor) {}
-    
-    Solution(const Solution& other) = default;  // Copy constructor
-    Solution& operator=(const Solution& other) = default;  // Copy assignment operator
-    Solution(Solution&& other) = default;  // Move constructor
-    Solution& operator=(Solution&& other) = default;  // Move assignment operator
-    ~Solution() = default;  // Destructor
-};
 
 void printSolution(const Solution& solution) {
     cout << "Vertex colors: ";
@@ -43,28 +29,8 @@ void printSolution(const Solution& solution) {
     cout << "Conflicting vertices: " << solution.conflictingVertices << endl << endl;
 }
 
-struct Parameters {
-    vector<vector<bool>> allowedColors; // Initialized in the constructor
-    double alpha = 3.0;
-    double beta = 16.0;
-    double rho = 0.7;
-    double maxTime = 100.0;
-    double maxTabucolTime = 0.1;
-    int numVertices; // Required
-    int numColors;   // Required
-    int maxCycles = 625;
-    int maxTabulcolCycles = 25;
-    int numAnts = 80;
-    int gap = 25; // Paper suggests sqrt(maxCycles)
 
-    // Constructor with required numVertices and numColors
-    Parameters(int numVertices, int numColors)
-        : numVertices(numVertices), numColors(numColors),
-          allowedColors(numVertices, vector<bool>(numColors, true)) {} // Matrix of trues
-};
-
-
-void updatePheromones(const Graph& graph, vector<vector<double>>& pheromones, Parameters& params, const Solution& colonyBest, const Solution& antBest, int cycle, int& pheroCounter) {
+static void updatePheromones(const Graph& graph, vector<vector<double>>& pheromones, Parameters& params, const Solution& colonyBest, const Solution& antBest, int cycle, int& pheroCounter) {
     // udpdate pheromone scheme 3
     if (cycle % params.gap == 0) {
         pheroCounter = cycle / params.gap;
@@ -87,12 +53,12 @@ void updatePheromones(const Graph& graph, vector<vector<double>>& pheromones, Pa
     }
 }
 
-int optimizationFunction(const Solution& solution) {
+static int optimizationFunction(const Solution& solution) {
     return solution.conflictingEdges;
 }
 
 // if this is a bottleneck can redo saturation storing
-int saturation(const vector<int>& neighborsByColor) {
+static int saturation(const vector<int>& neighborsByColor) {
     int saturationVal = 0;
     for (size_t i = 0; i < neighborsByColor.size(); ++i) {
         if (neighborsByColor[i] > 0) {
@@ -102,7 +68,7 @@ int saturation(const vector<int>& neighborsByColor) {
     return saturationVal;
 }
 
-double pheromoneTrail(int vertex, int color, Solution& solution, const vector<vector<double>>& pheromones) {
+static double pheromoneTrail(int vertex, int color, Solution& solution, const vector<vector<double>>& pheromones) {
     double numColored = 0;
     double pheromoneSum = 0;
     for (size_t u = 0; u < solution.vertexColors.size(); ++u) {
@@ -119,18 +85,18 @@ double pheromoneTrail(int vertex, int color, Solution& solution, const vector<ve
     return (pheromoneSum + epsilon) / numColored;
 }
 
-double heuristic(int vertex, int color, vector<vector<int>>& neighborsByColor) {
+static double heuristic(int vertex, int color, vector<vector<int>>& neighborsByColor) {
     // Paper doesn't add 1 to denominator, repo does. Without adding one, gets /0 error
     return 1.0 / (neighborsByColor[vertex][color] + 1);
 }
 
-double assignmentWeight(int vertex, int color, Parameters& params, vector<vector<int>>& neighborsByColor, Solution& solution, const vector<vector<double>>& pheromones) {
+static double assignmentWeight(int vertex, int color, Parameters& params, vector<vector<int>>& neighborsByColor, Solution& solution, const vector<vector<double>>& pheromones) {
     return pow(pheromoneTrail(vertex, color, solution, pheromones), params.alpha)
          * pow(heuristic(vertex, color, neighborsByColor), params.beta)
          * params.allowedColors[vertex][color];
 }
 
-int bestColor(int vertex, Parameters& params, vector<vector<int>>& neighborsByColor, Solution& solution, const vector<vector<double>>& pheromones) {
+static int bestColor(int vertex, Parameters& params, vector<vector<int>>& neighborsByColor, Solution& solution, const vector<vector<double>>& pheromones) {
     vector<double> weights;
     weights.reserve(params.numColors);
     for (auto color = 0; color < params.numColors; ++color) {
@@ -145,7 +111,7 @@ int bestColor(int vertex, Parameters& params, vector<vector<int>>& neighborsByCo
     return selection;
 }
 
-void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const vector<vector<double>>& pheromones) {
+static void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const vector<vector<double>>& pheromones) {
     vector<vector<int>> neighborsByColor(params.numVertices, vector<int>(params.numColors, 0)); // store saturation directly here later (n+1)
     
     int numUncolored = params.numVertices;
@@ -179,7 +145,7 @@ void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const
 }
 
 // Count the number of conflicts caused by any given vertex being set to any given color
-void countConflicts(vector<vector<int>>& conflicts, const Graph& graph, Solution& solution, Parameters& params) {
+static void countConflicts(vector<vector<int>>& conflicts, const Graph& graph, Solution& solution, Parameters& params) {
     for (int i = 0; i < params.numVertices; i++) {
         for (int j = 0; j < params.numVertices; j++) {
             if (graph[i][j]) {
@@ -190,7 +156,7 @@ void countConflicts(vector<vector<int>>& conflicts, const Graph& graph, Solution
 }
 
 
-void updateSolution(Solution& solution, const Graph& graph, const Parameters& params, const LocalStep& step, vector<vector<int>>& conflicts, vector<vector<int>>& tabuTenure, int newTenure) {
+static void updateSolution(Solution& solution, const Graph& graph, const Parameters& params, const LocalStep& step, vector<vector<int>>& conflicts, vector<vector<int>>& tabuTenure, int newTenure) {
     int vertex = step.vertex;
     int oldColor = solution.vertexColors[vertex];
     int newColor = step.color;
@@ -208,7 +174,7 @@ void updateSolution(Solution& solution, const Graph& graph, const Parameters& pa
     tabuTenure[vertex][newColor] = newTenure;
 }
 
-void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& totalConflicts,
+static void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& totalConflicts,
                       int& maxSolutionValue, int& minSolutionValue, const Parameters& params) {
     // Predefined parameter pairs: {frequency, increment, nextPair}
     static int pairs[][3] = {
@@ -265,7 +231,7 @@ void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& totalConfl
     }
 }
 
-void dynamicTenureUpdate(int& tabuTenureLength, int numVertexConflicts) {
+static void dynamicTenureUpdate(int& tabuTenureLength, int numVertexConflicts) {
     // Create a random number generator
     static std::mt19937 generator{std::random_device{}()}; // Seed the generator
     std::uniform_int_distribution<int> distribution(0, 9); // Generate numbers in the range [0, 9]
@@ -275,7 +241,7 @@ void dynamicTenureUpdate(int& tabuTenureLength, int numVertexConflicts) {
     tabuTenureLength = static_cast<int>(0.6 * numVertexConflicts) + randomValue;
 }
 
-int countConflictingVertices(const Solution& solution, const Graph& graph, const Parameters& params) {
+static int countConflictingVertices(const Solution& solution, const Graph& graph, const Parameters& params) {
     int numConflicts = 0;
 
     // Iterate through each vertex and its neighbors
@@ -291,7 +257,7 @@ int countConflictingVertices(const Solution& solution, const Graph& graph, const
     return numConflicts;
 }
 
-void reactTabucol(Solution& solution, const Graph& graph, Parameters& params) {
+static void reactTabucol(Solution& solution, const Graph& graph, Parameters& params) {
     int currentIteration = 1;
     int tabuLength = params.numVertices / 10;
     vector<vector<int>> tabuTenure(params.numVertices, vector<int>(params.numColors, currentIteration));
@@ -441,7 +407,7 @@ void ColorAnt3WithSpilling(Solution& solution, const Graph& graph, Parameters& p
 }
 
 
-void testCase1() {
+static void testCase1() {
     Graph graph1 = {
         {0, 1, 1, 0},
         {1, 0, 1, 1},
@@ -462,7 +428,7 @@ void testCase1() {
     printSolution(solution1);
 }
 
-void testCase2() {
+static void testCase2() {
     // Test Case 2: Triangle Graph (K3)
     Graph graph2 = {
         {0, 1, 1},
@@ -482,7 +448,7 @@ void testCase2() {
     printSolution(solution2);
 }
 
-void testCase3() {
+static void testCase3() {
     // Test Case 3: Complete Graph (K5)
     Graph graph3 = {
         {0, 1, 1, 1, 1},
@@ -507,7 +473,7 @@ void testCase3() {
 }
 
 
-void testCaseReal() {
+static void testCaseReal() {
     // Test Case Real, from test.c source code interference graph
     Graph graph = {
         {0, 1, 0, 1, 1, 1, 1, 1},
