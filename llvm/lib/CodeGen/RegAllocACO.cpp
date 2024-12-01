@@ -37,6 +37,8 @@
 #include <boost/pending/disjoint_sets.hpp>
 #include <unordered_set>
 
+#include "ACOGraphColoring.h"
+
 using namespace llvm;
 
 #define DEBUG_TYPE "regalloc"
@@ -148,12 +150,12 @@ public:
   /* ACO */
   Graph makeGraph();
   ColorOptions makeColorOptions();
-  ACOColoringResult doACOColoring();
+  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions);
   // Returns true if a register was spilled, false otherwise
   bool allocateACOColors(const ACOColoringResult& coloring);
   bool isValidPhysReg(MCRegister physReg, LiveInterval* virtReg);
   void createColors();
-  MCPhysReg getRegisterFromColor(int color, TargetRegisterClass* rc);
+  MCPhysReg getRegisterFromColor(int color, const TargetRegisterClass* rc);
 
   static char ID;
 };
@@ -452,7 +454,7 @@ ColorOptions RAAco::makeColorOptions() {
   return colorOptions;
 }
 
-MCPhysReg RAAco::getRegisterFromColor(int color, TargetRegisterClass* rc) {
+MCPhysReg RAAco::getRegisterFromColor(int color, const TargetRegisterClass* rc) {
   auto& regs = colorsToRegs[color];
   for (MCPhysReg reg : regs) {
     if (rc->contains(reg)) {
@@ -461,12 +463,15 @@ MCPhysReg RAAco::getRegisterFromColor(int color, TargetRegisterClass* rc) {
   }
 }
 
-ACOColoringResult RAAco::doACOColoring() {
+ACOColoringResult RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions) {
   // TODO: actually integrate with coloring implementation
 
-  // output of coloring, index is VR #, value is physical reg number (color)
-  std::vector<int> colors{216, 239, -1, 267, 217, 218, 219, 220};
-//  std::vector<int> colors{208, 240, -1, 247, 217, 216, 217, 208}; // correct
+  Parameters params(graph.size(), colorOptions[0].size());
+  params.allowedColors = colorOptions;
+  Solution solution(graph.size());
+  ColorAnt3WithSpilling(solution, graph, params);
+
+  auto &colors = solution.vertexColors;
 
   ACOColoringResult coloring{};
 
@@ -479,11 +484,14 @@ ACOColoringResult RAAco::doACOColoring() {
     }
 
     LiveInterval* virtReg{&LIS->getInterval(r)};
+    const TargetRegisterClass *rc = MRI->getRegClass(virtReg->reg());
 
     std::optional<MCPhysReg> physReg{std::nullopt};
     if (colors[i] >= 0) {
       // negative color will indicate a spill
-      physReg = MCRegister{static_cast<MCPhysReg>(colors[i])};
+      physReg = MCRegister{static_cast<MCPhysReg>(
+        getRegisterFromColor(colors[i], rc)
+      )};
     }
 
     coloring[virtReg] = physReg;
@@ -542,14 +550,17 @@ bool RAAco::allocateACOColors(const ACOColoringResult& coloring) {
 
 //      VRM->assignVirt2Phys(virtReg->reg(), *physReg);
       LLVM_DEBUG(dbgs() << "Interference?: " << static_cast<int>(Matrix->checkInterference(*virtReg, *physReg)) << "\n");
+      if(Matrix->checkInterference(*virtReg, *physReg) != LiveRegMatrix::InterferenceKind::IK_Free) {
+        exit(1);
+      }
       Matrix->assign(*virtReg, *physReg);
-      // TODO: if we do end up using the matrix, use this INSTEAD of the above call
-      //      Matrix->assign(*virtReg, *physReg);
     } else {
       // need to spill
       spilled = true;
       //      Matrix->unassign(*virtReg);
       // TODO: figure out how to use LRE + Spiller
+      dbgs() << "Need to spill\n";
+      exit(1);
     }
   }
 
@@ -599,7 +610,7 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   printGraph(graph);
 
   do {
-    coloring = doACOColoring();
+    coloring = doACOColoring(graph, options);
     spillsOccurred = allocateACOColors(coloring);
     break; // TODO: remove so we actually re-build and re-color graph after spilling
   } while (spillsOccurred);
