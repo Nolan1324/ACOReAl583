@@ -34,6 +34,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include <queue>
 #include <sstream>
+#include <boost/pending/disjoint_sets.hpp>
+#include <unordered_set>
 
 using namespace llvm;
 
@@ -92,6 +94,9 @@ class RAAco : public MachineFunctionPass,
   // selectOrSplit().
   BitVector UsableRegs;
 
+  std::unordered_map<int, std::unordered_set<MCPhysReg>> colorsToRegs{};
+  std::unordered_map<MCPhysReg, int> regsToColors{};
+
   bool LRE_CanEraseVirtReg(Register) override;
   void LRE_WillShrinkVirtReg(Register) override;
 
@@ -147,6 +152,8 @@ public:
   // Returns true if a register was spilled, false otherwise
   bool allocateACOColors(const ACOColoringResult& coloring);
   bool isValidPhysReg(MCRegister physReg, LiveInterval* virtReg);
+  void createColors();
+  MCPhysReg getRegisterFromColor(int color, TargetRegisterClass* rc);
 
   static char ID;
 };
@@ -362,24 +369,74 @@ Graph RAAco::makeGraph() {
   return graph;
 }
 
-static int physRegToColor(const TargetRegisterClass *rc, MCPhysReg reg) {
-  // TODO
-  return 0;
-}
+void RAAco::createColors() {
+  const int num_elements = TRI->getNumRegUnits();
 
-static int colorToPhysReg(const TargetRegisterClass *rc, MCPhysReg reg) {
-  // TODO
-  return 0;
+  std::vector<int> rank(num_elements, 0);
+  std::vector<int> parent(num_elements);
+
+  for (int i = 0; i < num_elements; ++i) {
+    parent[i] = i;
+  }
+
+  boost::disjoint_sets<int*, int*> ds(&rank[0], &parent[0]);
+
+  for (int i = 0; i < num_elements; ++i) {
+    ds.make_set(i);
+  }
+
+  std::set<MCPhysReg> usedRegs{};
+
+  for (unsigned i = 0; i < MRI->getNumVirtRegs(); ++i) {
+    Register virtReg = Register::index2VirtReg(i);
+    if (LIS->hasInterval(virtReg) && !MRI->reg_nodbg_empty(virtReg)) {
+      const TargetRegisterClass *rc = MRI->getRegClass(virtReg);
+      for (MCPhysReg reg : *rc) {
+        usedRegs.insert(reg);
+      }
+    }
+  }
+
+  for (MCPhysReg reg : usedRegs) {
+    auto regUnits = TRI->regunits(reg);
+    auto firstUnit = *regUnits.begin();
+
+    for (auto regUnit : regUnits) {
+      ds.union_set(firstUnit, regUnit);
+    }
+  }
+
+  int currentColor = 0;
+  std::unordered_map<int, int> representative_to_color{};
+
+  for (MCPhysReg reg : usedRegs) {
+    auto unit = *TRI->regunits(reg).begin();
+    int representative = ds.find_set(unit);
+
+    if (representative_to_color.count(representative) == 0) {
+      representative_to_color[representative] = currentColor;
+      regsToColors[reg] = currentColor;
+      currentColor++;
+    } else {
+      regsToColors[reg] = representative_to_color[representative];
+    }
+  }
+
+  for (auto &[reg, color] : regsToColors) {
+    errs() << TRI->getName(reg) << " = " << color << "\n";
+    colorsToRegs[color].insert(reg);
+  }
 }
 
 ColorOptions RAAco::makeColorOptions() {
   int numVirtRegs = MRI->getNumVirtRegs();
 
-  ColorOptions colorOptions(numVirtRegs, std::vector<bool>(TRI->getNumRegs(), false));
+  ColorOptions colorOptions(numVirtRegs, std::vector<bool>(colorsToRegs.size(), false));
 
   for(int i = 0; i < numVirtRegs; ++i) {
     Register vr = Register::index2VirtReg(i);
     if (MRI->reg_nodbg_empty(vr) || !LIS->hasInterval(vr)) {
+      colorOptions[i][0] = true;
       continue;
     }
     const TargetRegisterClass *rc = MRI->getRegClass(vr);
@@ -387,12 +444,21 @@ ColorOptions RAAco::makeColorOptions() {
     for (auto reg : allocOrder) {
       auto interference = Matrix->checkInterference(LIS->getInterval(vr), reg);
       if(interference == LiveRegMatrix::InterferenceKind::IK_Free) {
-        colorOptions[i][physRegToColor(rc, reg)] = true;
+        colorOptions[i][regsToColors[reg]] = true;
       }
     }
   }
 
   return colorOptions;
+}
+
+MCPhysReg RAAco::getRegisterFromColor(int color, TargetRegisterClass* rc) {
+  auto& regs = colorsToRegs[color];
+  for (MCPhysReg reg : regs) {
+    if (rc->contains(reg)) {
+      return reg;
+    }
+  }
 }
 
 ACOColoringResult RAAco::doACOColoring() {
@@ -474,7 +540,6 @@ bool RAAco::allocateACOColors(const ACOColoringResult& coloring) {
 //               << ") was in coloring output!\n";
 //      }
 
-
 //      VRM->assignVirt2Phys(virtReg->reg(), *physReg);
       LLVM_DEBUG(dbgs() << "Interference?: " << static_cast<int>(Matrix->checkInterference(*virtReg, *physReg)) << "\n");
       Matrix->assign(*virtReg, *physReg);
@@ -510,6 +575,25 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   // ACO Register Allocation
   bool spillsOccurred{false};
   ACOColoringResult coloring;
+
+  createColors();
+  ColorOptions options = makeColorOptions();
+
+  for (auto& row : options) {
+    for (bool el : row) {
+      errs() << el << " ";
+    }
+    errs() << "\n";
+  }
+
+//  for (unsigned int reg = 1; reg < TRI->getNumRegs(); ++reg) {
+//    errs() << "Register " << TRI->getName(reg) << " -> ";
+//    for (auto regUnit : TRI->regunits(reg)) {
+//      errs() << regUnit << ", ";
+//    }
+//
+//    errs() << "\n";
+//  }
 
   Graph graph = makeGraph();
   printGraph(graph);
