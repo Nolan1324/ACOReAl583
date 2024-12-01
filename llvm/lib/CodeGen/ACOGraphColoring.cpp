@@ -12,6 +12,12 @@
 using namespace std;
 using Graph = vector<vector<bool>>; // Adjacency matrix representation
 
+class LocalStep {
+public:
+    int vertex;
+    int color;
+};
+
 struct Solution {
     vector<int> vertexColors; // Color assignments for vertices
     int conflictingEdges = 0;
@@ -38,16 +44,23 @@ void printSolution(const Solution& solution) {
 }
 
 struct Parameters {
-    vector<vector<bool>> allowedColors;
-    double alpha;
-    double beta;
-    double rho;
-    double maxTime;
-    int numVertices;
-    int numColors;
-    int maxCycles;
-    int numAnts;
-    int gap; // Paper suggests sqrt(maxCycles)
+    vector<vector<bool>> allowedColors; // Initialized in the constructor
+    double alpha = 3.0;
+    double beta = 16.0;
+    double rho = 0.7;
+    double maxTime = 100.0;
+    double maxTabucolTime = 0.1;
+    int numVertices; // Required
+    int numColors;   // Required
+    int maxCycles = 625;
+    int maxTabulcolCycles = 25;
+    int numAnts = 80;
+    int gap = 25; // Paper suggests sqrt(maxCycles)
+
+    // Constructor with required numVertices and numColors
+    Parameters(int numVertices, int numColors)
+        : numVertices(numVertices), numColors(numColors),
+          allowedColors(numVertices, vector<bool>(numColors, true)) {} // Matrix of trues
 };
 
 
@@ -176,21 +189,123 @@ void countConflicts(vector<vector<int>>& conflicts, const Graph& graph, Solution
     }
 }
 
-class LocalStep {
-public:
-    int vertex;
-    int color;
-};
+
+void updateSolution(Solution& solution, const Graph& graph, const Parameters& params, const LocalStep& step, vector<vector<int>>& conflicts, vector<vector<int>>& tabuTenure, int newTenure) {
+    int vertex = step.vertex;
+    int oldColor = solution.vertexColors[vertex];
+    int newColor = step.color;
+    solution.conflictingEdges += conflicts[newColor][vertex] - conflicts[oldColor][vertex];
+    solution.vertexColors[vertex] = newColor;
+
+
+    for (int neighbor = 0; neighbor < params.numVertices; ++neighbor) {
+        if (!graph[vertex][neighbor]) continue;
+
+        conflicts[oldColor][neighbor]--;
+        conflicts[newColor][neighbor]++;
+    }
+
+    tabuTenure[vertex][newColor] = newTenure;
+}
+
+void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& totalConflicts,
+                      int& maxSolutionValue, int& minSolutionValue, const Parameters& params) {
+    // Predefined parameter pairs: {frequency, increment, nextPair}
+    static int pairs[][3] = {
+        {10000, 10, 5}, {10000, 15, 3}, {10000, 5, 10}, {5000, 15, 10},
+        {5000, 10, 15}, {5000, 5, 20}, {1000, 15, 30}, {1000, 10, 50},
+        {1000, 5, 100}, {500, 5, 100}, {500, 10, 150}, {500, 15, 200}
+    };
+
+    static int pairCycles = 0;
+    static int frequency = pairs[0][0];
+    static int increment = pairs[0][1];
+    static int nextPair = pairs[0][2];
+    static int numPairs = sizeof(pairs) / sizeof(pairs[0]);
+
+    int maxMin = 0;
+
+    // Update max and min solution values
+    maxSolutionValue = std::max(maxSolutionValue, totalConflicts);
+    minSolutionValue = std::min(minSolutionValue, totalConflicts);
+
+    maxMin = maxSolutionValue - minSolutionValue;
+
+    if (iteration % frequency == 0) {
+        // Adjust tabu tenure
+        if (maxMin < (4 + totalConflicts / 80) || tabuTenureLength == 0) {
+            tabuTenureLength += increment;
+
+            if (pairCycles == nextPair) {
+                // Select a new parameter pair
+                int randomIndex = rand() % numPairs;
+                frequency = pairs[randomIndex][0];
+                increment = pairs[randomIndex][1];
+                nextPair = pairs[randomIndex][2];
+                pairCycles = 0;
+            }
+        } else if (tabuTenureLength > 0) {
+            tabuTenureLength--;
+        }
+
+        // Reset solution value tracking
+        minSolutionValue = params.numVertices * params.numVertices;
+        maxSolutionValue = 0;
+
+        if (pairCycles == nextPair) {
+            // Select a new parameter pair
+            int randomIndex = rand() % numPairs;
+            frequency = pairs[randomIndex][0];
+            increment = pairs[randomIndex][1];
+            nextPair = pairs[randomIndex][2];
+            pairCycles = 0;
+        } else {
+            pairCycles++;
+        }
+    }
+}
+
+void dynamicTenureUpdate(int& tabuTenureLength, int numVertexConflicts) {
+    // Create a random number generator
+    static std::mt19937 generator{std::random_device{}()}; // Seed the generator
+    std::uniform_int_distribution<int> distribution(0, 9); // Generate numbers in the range [0, 9]
+
+    // Generate a random number and calculate tabuTenureLength
+    int randomValue = distribution(generator);
+    tabuTenureLength = static_cast<int>(0.6 * numVertexConflicts) + randomValue;
+}
+
+int countConflictingVertices(const Solution& solution, const Graph& graph, const Parameters& params) {
+    int numConflicts = 0;
+
+    // Iterate through each vertex and its neighbors
+    for (int i = 0; i < params.numVertices; i++) {
+        for (int j = 0; j < params.numVertices; j++) {
+            if (graph[i][j] && solution.vertexColors[i] == solution.vertexColors[j]) {
+                numConflicts++;
+                break; // Count the vertex only once
+            }
+        }
+    }
+
+    return numConflicts;
+}
 
 void reactTabucol(Solution& solution, const Graph& graph, Parameters& params) {
-    return;
-    vector<vector<int>> conflicts(params.numVertices, vector<int>(params.numColors, 0));
+    int currentIteration = 0;
+    int tabuLength = params.numVertices / 10;
+    vector<vector<int>> tabuTenure(params.numVertices, vector<int>(params.numColors, currentIteration));
+    vector<vector<int>> conflicts(params.numVertices, vector<int>(params.numColors, currentIteration));
     countConflicts(conflicts, graph, solution, params);
-    while (true) {
+    
+    auto duration = std::chrono::duration<double>(params.maxTabucolTime);
+    auto start = std::chrono::steady_clock::now();
+
+    while (currentIteration < params.maxTabulcolCycles && std::chrono::steady_clock::now() - start < duration) {
         vector<int> conflictingVertices;
         for (int i = 0; i < params.numVertices; i++) {
             if (conflicts[solution.vertexColors[i]][i] > 0) {
-                //total_conflicts += conflicts[solution->color_of[i]][i];
+                //totalConflicts += conflicts[solution->color_of[i]][i];
                 //nodes_in_conflict[0]++;
                 //conf_position[i] = nodes_in_conflict[0];
                 conflictingVertices.push_back(i);
@@ -198,15 +313,41 @@ void reactTabucol(Solution& solution, const Graph& graph, Parameters& params) {
         }
 
         int bestValue = numeric_limits<int>::max();
-        for (int i: conflictingVertices) {
+        int bestVertex = -1;
+        int bestColor = -1;
+        for (int v: conflictingVertices) {
             for (int c = 0; c < params.numColors; c++) {
-                int newValue = solution.conflictingEdges + conflicts[c][i] - conflicts[solution.vertexColors[i]][i];
+                int newValue = solution.conflictingEdges + conflicts[c][v] - conflicts[solution.vertexColors[v]][v];
                 bool localBest = newValue <= bestValue;
-                if (localBest && true) { // Fix later
-
+                bool tabu = tabuTenure[v][c] >= currentIteration;
+                if (localBest && !tabu) {
+                    bestValue = newValue;
+                    bestVertex = v;
+                    bestColor = c;
                 }
             }
         }
+        // TODO: Fix the following if to randomize if all choices are tabu
+        bool allTabu = (bestVertex == -1);
+        if (allTabu) {
+            int c = 0;
+            int v = 0;
+            bestValue = solution.conflictingEdges + conflicts[c][v] - conflicts[solution.vertexColors[v]][v];
+            bestVertex = v;
+            bestColor = c;
+        }
+        // END TODO
+
+        LocalStep bestStep = {bestVertex, bestColor};
+        int newTenure = currentIteration + tabuLength;
+        updateSolution(solution, graph, params, bestStep, conflicts, tabuTenure, newTenure);
+
+        // This is probably worth calculating elsewhere
+        int numVertexConflicts = countConflictingVertices(solution, graph, params);
+        dynamicTenureUpdate(tabuLength, numVertexConflicts);
+        // TODO: Make reactive tenure work
+        // reactiveTenureUpdate(tabuLength, currentIteration, 
+        // int& totalConflicts, int& maxSolutionValue, int& minSolutionValue, const Parameters& params)
     }
 }
 
@@ -296,13 +437,14 @@ void testCase1() {
         {1, 1, 0, 1},
         {0, 1, 1, 0}
     };
-    Graph allAllowed1 = {
+    Graph allowed1 = {
         {1, 0},
         {1, 1},
         {1, 1},
         {1, 1}
     };
-    Parameters params1 = {allAllowed1, 3.0, 16.0, 0.7, 100.0, 4, 2, 625, 80, static_cast<int>(sqrt(625))};
+    Parameters params1(4, 2);
+    params1.allowedColors = allowed1;
     Solution solution1(4);
     ColorAnt3WithSpilling(solution1, graph1, params1);
     cout << "Test Case 1: Simple Bipartite Graph" << endl;
@@ -316,12 +458,13 @@ void testCase2() {
         {1, 0, 1},
         {1, 1, 0}
     };
-    Graph allAllowed2 = {
+    Graph allowed2 = {
         {1, 0},
         {1, 1},
         {1, 1}
     };
-    Parameters params2 = {allAllowed2, 3.0, 16.0, 0.7, 100.0, 3, 2, 625, 80, static_cast<int>(sqrt(625))};
+    Parameters params2(3, 2);
+    params2.allowedColors = allowed2;
     Solution solution2(3);
     ColorAnt3WithSpilling(solution2, graph2, params2);
     cout << "Test Case 2: Triangle Graph (K3)" << endl;
@@ -337,14 +480,15 @@ void testCase3() {
         {1, 1, 1, 0, 1},
         {1, 1, 1, 1, 0}
     };
-    Graph allAllowed3 = {
+    Graph allowed3 = {
         {1, 0, 1, 1},
         {1, 1, 1, 1},
         {1, 1, 1, 1},
         {1, 1, 1, 1},
         {0, 1, 1, 1}
     };
-    Parameters params3 = {allAllowed3, 3.0, 16.0, 0.7, 100.0, 5, 4, 625, 80, static_cast<int>(sqrt(625))};
+    Parameters params3(5, 4);
+    params3.allowedColors = allowed3;
     Solution solution3(5);
     ColorAnt3WithSpilling(solution3, graph3, params3);
     cout << "Test Case 3: Complete Graph (K5)" << endl;
