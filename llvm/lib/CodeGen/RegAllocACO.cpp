@@ -52,6 +52,7 @@ namespace {
 
 using ACOColoringResult = std::map<LiveInterval*, std::optional<MCRegister>>;
 using Graph = std::vector<std::vector<bool>>;
+using ColorOptions = std::vector<std::vector<bool>>;
 
 namespace {
   Graph makeEmptyGraph(unsigned int n) {
@@ -141,6 +142,7 @@ public:
 
   /* ACO */
   Graph makeGraph();
+  ColorOptions makeColorOptions();
   ACOColoringResult doACOColoring();
   // Returns true if a register was spilled, false otherwise
   bool allocateACOColors(const ACOColoringResult& coloring);
@@ -358,6 +360,39 @@ Graph RAAco::makeGraph() {
   }
 
   return graph;
+}
+
+static int physRegToColor(const TargetRegisterClass *rc, MCPhysReg reg) {
+  // TODO
+  return 0;
+}
+
+static int colorToPhysReg(const TargetRegisterClass *rc, MCPhysReg reg) {
+  // TODO
+  return 0;
+}
+
+ColorOptions RAAco::makeColorOptions() {
+  int numVirtRegs = MRI->getNumVirtRegs();
+
+  ColorOptions colorOptions(numVirtRegs, std::vector<bool>(TRI->getNumRegs(), false));
+
+  for(int i = 0; i < numVirtRegs; ++i) {
+    Register vr = Register::index2VirtReg(i);
+    if (MRI->reg_nodbg_empty(vr) || !LIS->hasInterval(vr)) {
+      continue;
+    }
+    const TargetRegisterClass *rc = MRI->getRegClass(vr);
+    ArrayRef<MCPhysReg> allocOrder = RegClassInfo.getOrder(rc);  
+    for (auto reg : allocOrder) {
+      auto interference = Matrix->checkInterference(LIS->getInterval(vr), reg);
+      if(interference == LiveRegMatrix::InterferenceKind::IK_Free) {
+        colorOptions[i][physRegToColor(rc, reg)] = true;
+      }
+    }
+  }
+
+  return colorOptions;
 }
 
 ACOColoringResult RAAco::doACOColoring() {
