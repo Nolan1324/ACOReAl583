@@ -7,5 +7,5 @@ int main(int argc, char** argv) {
   y = x+y;
   y = z+x;
 
-  return argc;
+  return y;
 }

@@ -47,7 +47,7 @@ define i32 @main(i32 noundef %0, ptr noundef %1) #0 {
   %34 = load i32, ptr %6, align 4
   %35 = add nsw i32 %33, %34
   store i32 %35, ptr %7, align 4
-  %36 = load i32, ptr %4, align 4
+  %36 = load i32, ptr %7, align 4
   ret i32 %36
 }
 
