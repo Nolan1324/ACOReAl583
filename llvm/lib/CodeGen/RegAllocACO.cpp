@@ -546,25 +546,38 @@ bool RAAco::isValidPhysReg(MCRegister physReg, LiveInterval* virtReg) {
 
 bool RAAco::allocateACOColors(const ACOColoringResult& coloring) {
   bool spilled{false};
-  for (unsigned int i = 0; i < MRI->getNumVirtRegs(); ++i) {
-    LLVM_DEBUG(dbgs() << "** VIRTUAL REGISTER " << i << " **\n");
-    Register vr{Register::index2VirtReg(i)};
-    const TargetRegisterClass *rc = MRI->getRegClass(vr);
-    ArrayRef<MCPhysReg> allocOrder = RegClassInfo.getOrder(rc);
+//  for (unsigned int i = 0; i < MRI->getNumVirtRegs(); ++i) {
+//    LLVM_DEBUG(dbgs() << "** VIRTUAL REGISTER " << i << " **\n");
+//    Register vr{Register::index2VirtReg(i)};
+//    const TargetRegisterClass *rc = MRI->getRegClass(vr);
+//    ArrayRef<MCPhysReg> allocOrder = RegClassInfo.getOrder(rc);
+//
+//    for (auto reg : allocOrder) {
+//      LLVM_DEBUG(dbgs() << reg << " ");
+//    }
+//    LLVM_DEBUG(dbgs() << "\n");
+//  }
 
-    for (auto reg : allocOrder) {
-      LLVM_DEBUG(dbgs() << reg << " ");
-    }
-    LLVM_DEBUG(dbgs() << "\n");
-  }
-
-  LLVM_DEBUG(dbgs() << "REG UNITS FOR W0: ");
-  for (auto unit : TRI->regunits(208)) {
-    LLVM_DEBUG(dbgs() << unit << " ");
-  }
-  LLVM_DEBUG(dbgs() << "\n");
+//  LLVM_DEBUG(dbgs() << "REG UNITS FOR W0: ");
+//  for (auto unit : TRI->regunits(208)) {
+//    LLVM_DEBUG(dbgs() << unit << " ");
+//  }
+//  LLVM_DEBUG(dbgs() << "\n");
 
   SmallVector<Register, 4> SplitVRegs;
+
+  for (const auto&[virtReg, physReg] : coloring) {
+    if (!physReg.has_value()) {
+      LLVM_DEBUG(dbgs() << "Spilling VR " << Register::virtReg2Index(virtReg->reg()) << "\n");
+      spilled = true;
+      LiveRangeEdit LRE(virtReg, SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
+      spiller().spill(LRE);
+    }
+  }
+
+  if (spilled) {
+    return true;
+  }
 
   for (const auto&[virtReg, physReg] : coloring) {
     if (physReg.has_value()) {
@@ -574,15 +587,11 @@ bool RAAco::allocateACOColors(const ACOColoringResult& coloring) {
       }
       Matrix->assign(*virtReg, *physReg);
     } else {
-      // need to spill
-      LLVM_DEBUG(dbgs() << "Spilling VR " << Register::virtReg2Index(virtReg->reg()) << "\n");
-      spilled = true;
-      LiveRangeEdit LRE(virtReg, SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
-      spiller().spill(LRE);
+      errs() << "Somehow missed a spill\n";
     }
   }
 
-  return spilled;
+  return false;
 }
 
 bool RAAco::runOnMachineFunction(MachineFunction &mf) {
@@ -603,32 +612,24 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
 
   // ACO Register Allocation
   bool spillsOccurred{false};
-  ACOColoringResult coloring;
-
-  createColors();
-  ColorOptions options = makeColorOptions();
-
-  for (auto& row : options) {
-    for (bool el : row) {
-      errs() << el << " ";
-    }
-    errs() << "\n";
-  }
-
-//  for (unsigned int reg = 1; reg < TRI->getNumRegs(); ++reg) {
-//    errs() << "Register " << TRI->getName(reg) << " -> ";
-//    for (auto regUnit : TRI->regunits(reg)) {
-//      errs() << regUnit << ", ";
-//    }
-//
-//    errs() << "\n";
-//  }
-
-  Graph graph = makeGraph();
-  std::vector<unsigned int> mustSpill = isolateForcedSpills(graph, options);
-  printGraph(graph);
 
   do {
+    ACOColoringResult coloring;
+
+    createColors();
+    ColorOptions options = makeColorOptions();
+
+    for (auto& row : options) {
+      for (bool el : row) {
+        errs() << el << " ";
+      }
+      errs() << "\n";
+    }
+
+    Graph graph = makeGraph();
+    std::vector<unsigned int> mustSpill = isolateForcedSpills(graph, options);
+    printGraph(graph);
+
     coloring = doACOColoring(graph, options, mustSpill);
     spillsOccurred = allocateACOColors(coloring);
     Matrix->invalidateVirtRegs();
