@@ -398,7 +398,7 @@ void ColorAnt3WithSpilling(Solution& solution, const Graph& graph, Parameters& p
     }
 
     if (spillNode == -1) {
-        break;
+        return;
     }
     solution.vertexColors[spillNode] = -1;
 }
