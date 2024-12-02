@@ -422,7 +422,9 @@ void RAAco::createColors() {
     Register virtReg = Register::index2VirtReg(i);
     if (LIS->hasInterval(virtReg) && !MRI->reg_nodbg_empty(virtReg)) {
       const TargetRegisterClass *rc = MRI->getRegClass(virtReg);
-      for (MCPhysReg reg : *rc) {
+      ArrayRef<MCPhysReg> allocOrder = RegClassInfo.getOrder(rc);
+
+      for (MCPhysReg reg : allocOrder) {
         usedRegs.insert(reg);
       }
     }
