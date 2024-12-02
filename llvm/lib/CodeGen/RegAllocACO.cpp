@@ -454,7 +454,7 @@ void RAAco::createColors() {
   }
 
   for (auto &[reg, color] : regsToColors) {
-    errs() << TRI->getName(reg) << " = " << color << "\n";
+    LLVM_DEBUG(dbgs() << TRI->getName(reg) << " = " << color << "\n");
     colorsToRegs[color].insert(reg);
   }
 }
@@ -625,7 +625,7 @@ bool RAAco::allocateACOColors(const ACOColoringResult& coloring) {
       }
       Matrix->assign(*virtReg, *physReg);
     } else {
-      errs() << "Somehow missed a spill\n";
+      LLVM_DEBUG(dbgs() << "Somehow missed a spill\n");
     }
   }
 
@@ -659,9 +659,9 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
 
     for (auto& row : options) {
       for (bool el : row) {
-        errs() << el << " ";
+        LLVM_DEBUG(dbgs() << el << " ");
       }
-      errs() << "\n";
+      LLVM_DEBUG(dbgs() << "\n");
     }
 
     Graph graph = makeGraph();
