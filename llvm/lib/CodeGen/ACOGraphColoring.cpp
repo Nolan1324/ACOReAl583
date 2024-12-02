@@ -378,30 +378,27 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
 
 void ColorAnt3WithSpilling(Solution& solution, const Graph& graph, Parameters& params) {
     ColorAnt3_RT(solution, graph, params);
-    while (true) {
-        vector<int> conflictCount(graph.size(), 0);
-        for (size_t u = 0; u < graph.size(); ++u) {
-            for (size_t v = 0; v < graph[u].size(); ++v) {
-                if (graph[u][v] && solution.vertexColors[u] != -1 && solution.vertexColors[u] == solution.vertexColors[v]) {
-                    conflictCount[u]++;
-                    conflictCount[v]++;
-                }
+    vector<int> conflictCount(graph.size(), 0);
+    for (size_t u = 0; u < graph.size(); ++u) {
+        for (size_t v = 0; v < graph[u].size(); ++v) {
+            if (graph[u][v] && solution.vertexColors[u] != -1 && solution.vertexColors[u] == solution.vertexColors[v]) {
+                conflictCount[u]++;
+                conflictCount[v]++;
             }
         }
-
-        int maxConflicts = 0;
-        int spillNode = -1;
-        for (size_t i = 0; i < conflictCount.size(); ++i) {
-            if (conflictCount[i] > maxConflicts) {
-                maxConflicts = conflictCount[i];
-                spillNode = i;
-            }
-        }
-
-        if (spillNode == -1) {
-            break;
-        }
-        solution.vertexColors[spillNode] = -1;
     }
-    
+
+    int maxConflicts = 0;
+    int spillNode = -1;
+    for (size_t i = 0; i < conflictCount.size(); ++i) {
+        if (conflictCount[i] > maxConflicts) {
+            maxConflicts = conflictCount[i];
+            spillNode = i;
+        }
+    }
+
+    if (spillNode == -1) {
+        break;
+    }
+    solution.vertexColors[spillNode] = -1;
 }
