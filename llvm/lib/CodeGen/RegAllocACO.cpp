@@ -43,6 +43,33 @@ using namespace llvm;
 
 #define DEBUG_TYPE "regalloc"
 
+static cl::opt<double>
+  Alpha("aco-alpha", cl::desc("Alpha parameter"), cl::init(3.0));
+
+static cl::opt<double>
+  Beta("aco-beta", cl::desc("Beta parameter"), cl::init(16.0));
+
+static cl::opt<double>
+  Rho("aco-rho", cl::desc("Evaporation rate (rho)"), cl::init(0.7));
+
+static cl::opt<double>
+  MaxTime("aco-max-time", cl::desc("Maximum execution time (seconds)"), cl::init(100.0));
+
+static cl::opt<double>
+  MaxTabucolTime("aco-max-tabucol-time", cl::desc("Maximum Tabucol execution time (seconds)"), cl::init(0.1));
+
+static cl::opt<int>
+  MaxCycles("aco-max-cycles", cl::desc("Maximum number of cycles"), cl::init(625));
+
+static cl::opt<int>
+  MaxTabucolCycles("aco-max-tabucol-cycles", cl::desc("Maximum Tabucol cycles"), cl::init(25));
+
+static cl::opt<int>
+  NumAnts("aco-num-ants", cl::desc("Number of ants"), cl::init(80));
+
+static cl::opt<int>
+  Gap("aco-gap", cl::desc("Cycle gap (suggested: sqrt of aco-max-cycles)"), cl::init(25));
+
 static RegisterRegAlloc acoRegAlloc("aco", "aco register allocator",
                                       createAcoRegisterAllocator);
 
@@ -485,6 +512,17 @@ std::vector<unsigned int> RAAco::isolateForcedSpills(Graph &graph, ColorOptions 
 ACOColoringResult RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions, const std::vector<unsigned int>& mustSpill) {
   Parameters params(graph.size(), colorOptions[0].size());
   params.allowedColors = colorOptions;
+
+  params.alpha = Alpha;
+  params.beta = Beta;
+  params.rho = Rho;
+  params.maxTime = MaxTime;
+  params.maxTabucolTime = MaxTabucolTime;
+  params.maxCycles = MaxCycles;
+  params.maxTabulcolCycles = MaxTabucolCycles;
+  params.numAnts = NumAnts;
+  params.gap = Gap;
+
   Solution solution(graph.size());
   ColorAnt3WithSpilling(solution, graph, params);
 
