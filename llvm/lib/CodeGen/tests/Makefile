@@ -1,13 +1,19 @@
-# Makefile for compiling, running, and cleaning ACOGraphColoring.cpp
-
-TARGET = ACOGraphColoring
-SRC = ACOGraphColoringTests.cpp ../ACOGraphColoring.cpp
+# Compiler and flags
 CXX = g++
-CXXFLAGS = -O2 -Wall -g
+CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -I../
 
-.PHONY: all clean
+# Target and source files
+TARGET = ACOGraphColoringTests
+SRC = ACOGraphColoringTests.cpp
 
-all:
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) -I..
+# Default rule: compile and run
+all: $(TARGET)
 	./$(TARGET)
+
+# Rule to build the executable
+$(TARGET): $(SRC)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+
+# Clean rule to remove the executable
+clean:
 	rm -f $(TARGET)
