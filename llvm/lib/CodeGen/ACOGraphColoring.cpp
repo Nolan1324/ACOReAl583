@@ -162,10 +162,7 @@ static void antFixedK(Solution& solution, const Graph& graph, Parameters& params
             }
         }
         
-        profileStart();
         int color = bestColor(chosenVertex, params, neighborsByColor, pheramoneTrails, gen);
-        profileStop();
-
         solution.vertexColors[chosenVertex] = color;
         numWithColor[color]++;
         for (int u = 0; u < params.numVertices; ++u) {
@@ -387,7 +384,7 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
     auto start = std::chrono::steady_clock::now(); // Record the start time
 
     while (cycles < params.maxCycles && bestSolutionValue > 0 && std::chrono::steady_clock::now() - start < duration) {
-        cout << "Starting cycle " << cycles << endl;
+        //cout << "Starting cycle " << cycles << endl;
         int bestAntValue = numeric_limits<int>::max();
         Solution antBest(params.numVertices);
         for (int ant = 1; ant <= params.numAnts; ++ant) {
