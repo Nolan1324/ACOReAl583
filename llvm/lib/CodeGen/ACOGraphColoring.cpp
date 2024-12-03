@@ -5,7 +5,6 @@
 #include <chrono>
 #include "math.h"
 #include <random>
-#include <omp.h>
 
 #include "ACOGraphColoring.h"
 
@@ -388,21 +387,18 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
         //cout << "Starting cycle " << cycles << endl;
         int bestAntValue = numeric_limits<int>::max();
         Solution antBest(params.numVertices);
-        #pragma omp parallel for
         for (int ant = 1; ant <= params.numAnts; ++ant) {
             Solution solution(params.numVertices);
             antFixedK(solution, graph, params, pheromones);
             reactTabucol(solution, graph, params);
-
-            int localBestValue = optimizationFunction(solution);
-            if (solution.conflictingEdges == 0 || localBestValue < bestAntValue) {
-                #pragma omp critical
-                {
-                    if (solution.conflictingEdges == 0 || localBestValue < bestAntValue) {
-                        bestAntValue = localBestValue;
-                        antBest = solution;
-                    }
-                }
+            
+            if (solution.conflictingEdges == 0 || solution.conflictingEdges < bestAntValue) {
+                bestAntValue = optimizationFunction(solution);
+                antBest = solution;
+                //cout << "TESTING TESTING" << endl;
+                // potential optimization
+                // bestCycleSolution.vertexColors = move(solution.vertexColors); // Move the vector
+                // bestCycleSolution.conflictingEdges = solution.conflictingEdges; // Move the conflictingEdges value
             }
         }
         if (bestAntValue < bestSolutionValue) {
