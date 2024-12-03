@@ -1,28 +1,13 @@
-# Define the compiler and flags
+# Makefile for compiling, running, and cleaning ACOGraphColoring.cpp
+
+TARGET = ACOGraphColoring
+SRC = ACOGraphColoringTests.cpp ../ACOGraphColoring.cpp
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -I../
+CXXFLAGS = -O3 -ffast-math -Wall -g -fopenmp
 
-# Define source and output files
-SRC = ../ACOGraphColoring.cpp ACOGraphColoringTests.cpp
-OBJ = $(SRC:.cpp=.o)
-EXEC = ACOGraphColoringTests
+.PHONY: all clean
 
-# Rule to create the executable
-$(EXEC): $(OBJ)
-	$(CXX) $(CXXFLAGS) -o $(EXEC) $(OBJ)
-
-# Rule to compile .cpp files to .o object files
-%.o: %.cpp ../ACOGraphColoring.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Clean rule to remove object files and the executable
-clean:
-	rm -f $(OBJ) $(EXEC)
-
-# Run tests after compilation
-run: $(EXEC)
-	./$(EXEC)
-
-# Default target (run tests after compilation)
-all: $(EXEC)
-	./$(EXEC)
+all:
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) -I..
+	./$(TARGET)
+	rm -f $(TARGET)
