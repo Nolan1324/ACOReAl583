@@ -12,6 +12,24 @@
 
 using namespace std;
 
+std::chrono::high_resolution_clock::time_point start_time;
+
+// Function to start profiling
+void profileStart() {
+    start_time = std::chrono::high_resolution_clock::now();  // Record start time
+}
+
+// Function to stop profiling and print elapsed time in milliseconds
+void profileStop() {
+    auto end_time = std::chrono::high_resolution_clock::now();    // Record end time
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);  // Calculate duration
+
+    // Convert microseconds to milliseconds and print with decimal point
+    double milliseconds = duration.count() / 1000.0;
+    std::cout << "Time taken: " << milliseconds << " milliseconds" << std::endl;
+}
+
+
 class LocalStep {
 public:
     int vertex;
@@ -96,16 +114,13 @@ static double assignmentWeight(int vertex, int color, Parameters& params, vector
          * params.allowedColors[vertex][color];
 }
 
-static int bestColor(int vertex, Parameters& params, vector<vector<int>>& neighborsByColor, Solution& solution, const vector<vector<double>>& pheromones) {
+static int bestColor(int vertex, Parameters& params, vector<vector<int>>& neighborsByColor, Solution& solution, const vector<vector<double>>& pheromones, mt19937& gen) {
     vector<double> weights;
     weights.reserve(params.numColors);
     for (auto color = 0; color < params.numColors; ++color) {
         weights.push_back(assignmentWeight(vertex, color, params, neighborsByColor, solution, pheromones));
     }
     
-
-    random_device randomDevice;
-    mt19937 gen(randomDevice()); // psuedo-RNG
     discrete_distribution<> dist(weights.begin(), weights.end());
     int selection = dist(gen);
     return selection;
@@ -115,6 +130,8 @@ static void antFixedK(Solution& solution, const Graph& graph, Parameters& params
     vector<vector<int>> neighborsByColor(params.numVertices, vector<int>(params.numColors, 0)); // store saturation directly here later (n+1)
     
     int numUncolored = params.numVertices;
+    random_device randomDevice;
+    mt19937 gen(randomDevice()); // psuedo-RNG
     while (numUncolored > 0) {
         int highestSaturation = -1;
         int chosenVertex = -1;
@@ -129,9 +146,10 @@ static void antFixedK(Solution& solution, const Graph& graph, Parameters& params
                 highestSaturation = sat;
             }
         }
-        int color = bestColor(chosenVertex, params, neighborsByColor, solution, pheromones);
+        
+        
+        int color = bestColor(chosenVertex, params, neighborsByColor, solution, pheromones, gen);
         solution.vertexColors[chosenVertex] = color;
-
         for (int u = 0; u < params.numVertices; ++u) {
             if (graph[u][chosenVertex]) {
                 ++neighborsByColor[u][color];
@@ -347,6 +365,7 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
     auto start = std::chrono::steady_clock::now(); // Record the start time
 
     while (cycles < params.maxCycles && bestSolutionValue > 0 && std::chrono::steady_clock::now() - start < duration) {
+        //cout << "Starting cycle " << cycles << endl;
         int bestAntValue = numeric_limits<int>::max();
         Solution antBest(params.numVertices);
         for (int ant = 1; ant <= params.numAnts; ++ant) {
