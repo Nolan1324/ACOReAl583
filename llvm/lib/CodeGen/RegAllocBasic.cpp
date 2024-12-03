@@ -222,8 +222,8 @@ bool RABasic::spillInterferences(const LiveInterval &VirtReg,
       Intfs.push_back(Intf);
     }
   }
-  LLVM_DEBUG(dbgs() << "spilling " << printReg(PhysReg, TRI)
-                    << " interferences with " << VirtReg << "\n");
+  errs() << "spilling " << printReg(PhysReg, TRI)
+                    << " interferences with " << VirtReg << "\n";
   assert(!Intfs.empty() && "expected interference");
 
   // Spill each interfering vreg allocated to PhysReg or an alias.
@@ -294,7 +294,7 @@ MCRegister RABasic::selectOrSplit(const LiveInterval &VirtReg,
   }
 
   // No other spill candidates were found, so spill the current VirtReg.
-  LLVM_DEBUG(dbgs() << "spilling: " << VirtReg << '\n');
+  errs() << "spilling: " << VirtReg << '\n';
   if (!VirtReg.isSpillable())
     return ~0u;
   LiveRangeEdit LRE(&VirtReg, SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
