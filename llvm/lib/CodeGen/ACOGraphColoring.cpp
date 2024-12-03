@@ -8,27 +8,57 @@
 
 #include "ACOGraphColoring.h"
 
-// TODO: Register constrains
-
 using namespace std;
 
 std::chrono::high_resolution_clock::time_point start_time;
+std::chrono::high_resolution_clock::time_point previous_end_time;
 
-// Function to start profiling
+float cumulative_percentage = 0.0;
+int call_count = 0;
+int print_frequency = 5000;  // Print the average every 10 calls
+
 void profileStart() {
-    start_time = std::chrono::high_resolution_clock::now();  // Record start time
+    start_time = std::chrono::high_resolution_clock::now();
 }
 
-// Function to stop profiling and print elapsed time in milliseconds
 void profileStop() {
-    auto end_time = std::chrono::high_resolution_clock::now();    // Record end time
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);  // Calculate duration
+    auto end_time = std::chrono::high_resolution_clock::now();
 
-    // Convert microseconds to milliseconds and print with decimal point
-    double milliseconds = duration.count() / 1000.0;
-    std::cout << "Time taken: " << milliseconds << " milliseconds" << std::endl;
+    // Use nanoseconds for higher precision
+    auto active_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time);
+
+    if (previous_end_time.time_since_epoch().count() == 0) {
+        previous_end_time = end_time;
+        return;  // No interval to calculate for the first call
+    }
+
+    // Use nanoseconds for total interval calculation as well
+    auto total_interval = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - previous_end_time);
+    previous_end_time = end_time;
+
+    float active_time_ns = active_duration.count();  // Nanoseconds as a raw value
+    float total_time_ns = total_interval.count();    // Nanoseconds as a raw value
+
+    if (total_time_ns == 0) {
+        std::cout << "Total time is too small, skipping calculation..." << std::endl;
+        return;
+    }
+
+    // Calculate the percentage
+    float percentage = (active_time_ns / total_time_ns) * 100.0;
+
+    // Accumulate percentages and count calls
+    cumulative_percentage += percentage;
+    ++call_count;
+
+    // Print the average every `print_frequency` calls
+    if (call_count % print_frequency == 0) {
+        float average_percentage = cumulative_percentage / print_frequency;
+        std::cout << "Average active time percentage (last " << print_frequency
+                  << " calls): " << average_percentage << "%" << std::endl;
+        cumulative_percentage = 0.0;  // Reset cumulative percentage
+    }
 }
-
 
 class LocalStep {
 public:
@@ -48,7 +78,7 @@ void printSolution(const Solution& solution) {
 }
 
 
-static void updatePheromones(const Graph& graph, vector<vector<double>>& pheromones, Parameters& params, const Solution& colonyBest, const Solution& antBest, int cycle, int& pheroCounter) {
+static void updatePheromones(const Graph& graph, vector<vector<float>>& pheromones, Parameters& params, const Solution& colonyBest, const Solution& antBest, int cycle, int& pheroCounter) {
     // udpdate pheromone scheme 3
     if (cycle % params.gap == 0) {
         pheroCounter = cycle / params.gap;
@@ -86,49 +116,34 @@ static int saturation(const vector<int>& neighborsByColor) {
     return saturationVal;
 }
 
-static double pheromoneTrail(int vertex, int color, Solution& solution, const vector<vector<double>>& pheromones) {
-    double numColored = 0;
-    double pheromoneSum = 0;
-    for (size_t u = 0; u < solution.vertexColors.size(); ++u) {
-        if (solution.vertexColors[u] != color) {
-            continue;
-        }
-        ++numColored;
-        pheromoneSum += pheromones[u][vertex];
-    }
-    if (numColored == 0) {
-        return 1.0;
-    }
-    double epsilon = 0.000000001;
-    return (pheromoneSum + epsilon) / numColored;
+
+inline float fastPow(float a, float b) {
+    return exp(b * log(a));
 }
 
-static double heuristic(int vertex, int color, vector<vector<int>>& neighborsByColor) {
-    // Paper doesn't add 1 to denominator, repo does. Without adding one, gets /0 error
-    return 1.0 / (neighborsByColor[vertex][color] + 1);
-}
-
-static double assignmentWeight(int vertex, int color, Parameters& params, vector<vector<int>>& neighborsByColor, Solution& solution, const vector<vector<double>>& pheromones) {
-    return pow(pheromoneTrail(vertex, color, solution, pheromones), params.alpha)
-         * pow(heuristic(vertex, color, neighborsByColor), params.beta)
+inline static float assignmentWeight(int vertex, int color, Parameters& params, vector<vector<int>>& neighborsByColor, vector<vector<float>>& pheromoneTrails) {
+    // pheromoneTrail * heuristic * isAllowed
+    // For heuristic, paper doesn't add 1 to denominator, repo does. Without adding one, gets /0 error
+    return fastPow(pheromoneTrails[vertex][color], params.alpha)
+         * fastPow(neighborsByColor[vertex][color] + 1, -params.beta)
          * params.allowedColors[vertex][color];
 }
 
-static int bestColor(int vertex, Parameters& params, vector<vector<int>>& neighborsByColor, Solution& solution, const vector<vector<double>>& pheromones, mt19937& gen) {
-    vector<double> weights;
-    weights.reserve(params.numColors);
-    for (auto color = 0; color < params.numColors; ++color) {
-        weights.push_back(assignmentWeight(vertex, color, params, neighborsByColor, solution, pheromones));
+static int bestColor(int vertex, Parameters& params, vector<vector<int>>& neighborsByColor, vector<vector<float>>& pheromoneTrails, mt19937& gen) {
+    float weights[params.numColors];
+    for (int color = 0; color < params.numColors; ++color) {
+        weights[color] = assignmentWeight(vertex, color, params, neighborsByColor, pheromoneTrails);
     }
-    
-    discrete_distribution<> dist(weights.begin(), weights.end());
-    int selection = dist(gen);
-    return selection;
+
+    discrete_distribution<> dist(weights, weights + params.numColors);
+    return dist(gen);
 }
 
-static void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const vector<vector<double>>& pheromones) {
+static void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const vector<vector<float>>& pheromones) {
     vector<vector<int>> neighborsByColor(params.numVertices, vector<int>(params.numColors, 0)); // store saturation directly here later (n+1)
-    
+    vector<int> numWithColor(params.numColors, 0);
+    vector<vector<float>> pheramoneTrails(params.numVertices, vector<float>(params.numColors, 1.0));
+
     int numUncolored = params.numVertices;
     random_device randomDevice;
     mt19937 gen(randomDevice()); // psuedo-RNG
@@ -147,10 +162,14 @@ static void antFixedK(Solution& solution, const Graph& graph, Parameters& params
             }
         }
         
-        
-        int color = bestColor(chosenVertex, params, neighborsByColor, solution, pheromones, gen);
+        int color = bestColor(chosenVertex, params, neighborsByColor, pheramoneTrails, gen);
         solution.vertexColors[chosenVertex] = color;
+        numWithColor[color]++;
         for (int u = 0; u < params.numVertices; ++u) {
+            // pheramoneTrails[u][c] = (sum_{v colored c} pheramones[u][v]) / (num colored c)
+            pheramoneTrails[u][color] *= (numWithColor[color] - 1.0) / numWithColor[color];
+            float epsilon = 0.0000000001;
+            pheramoneTrails[u][color] += (pheromones[u][chosenVertex] + epsilon) / numWithColor[color];
             if (graph[u][chosenVertex]) {
                 ++neighborsByColor[u][color];
                 if (solution.vertexColors[u] == color)  {
@@ -282,7 +301,7 @@ static void reactTabucol(Solution& solution, const Graph& graph, Parameters& par
     vector<vector<int>> conflicts(params.numColors, vector<int>(params.numVertices, 0));
     countConflicts(conflicts, graph, solution, params);
     
-    auto duration = std::chrono::duration<double>(params.maxTabucolTime);
+    auto duration = std::chrono::duration<float>(params.maxTabucolTime);
     auto start = std::chrono::steady_clock::now();
 
     // TODO: Create exit condition for if it's already a perfect solution
@@ -347,7 +366,7 @@ static void reactTabucol(Solution& solution, const Graph& graph, Parameters& par
 }
 
 void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
-    vector<vector<double>> pheromones(params.numVertices, vector<double>(params.numVertices, 1.0));
+    vector<vector<float>> pheromones(params.numVertices, vector<float>(params.numVertices, 1.0));
     
     int bestSolutionValue = numeric_limits<int>::max();
     Solution colonyBest(params.numVertices);
@@ -361,7 +380,7 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
     
     int cycles = 1; // starts at 1 accoridng to repo
     int pheroCounter = 0; // we think it starts at 0 from the repo
-    auto duration = std::chrono::duration<double>(params.maxTime); // Run for maxTime seconds
+    auto duration = std::chrono::duration<float>(params.maxTime); // Run for maxTime seconds
     auto start = std::chrono::steady_clock::now(); // Record the start time
 
     while (cycles < params.maxCycles && bestSolutionValue > 0 && std::chrono::steady_clock::now() - start < duration) {
