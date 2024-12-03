@@ -386,6 +386,11 @@ Graph RAAco::makeGraph() {
       }
 
       Register Reg2 = Register::index2VirtReg(vrIndices[j]);
+
+      if(LIS->getInterval(Reg1).empty() || LIS->getInterval(Reg2).empty()) {
+        graph[i][j] = false;
+        continue;
+      }
       if(LIS->getInterval(Reg1).overlaps(LIS->getInterval(Reg2))) {
         graph[i][j] = true;
       }
@@ -655,6 +660,10 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
         continue;
       }
       vrIndices.push_back(i);
+    }
+
+    if(vrIndices.empty()) {
+      break;
     }
 
     createColors();
