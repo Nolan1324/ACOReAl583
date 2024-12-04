@@ -429,11 +429,11 @@ void ColorAnt3WithSpilling(Solution& solution, const Graph& graph, Parameters& p
     ColorAnt3_RT(solution, graph, params);
     vector<int> conflictCount(graph.size(), 0);
     #ifdef SPILL_ONE_AT_A_TIME
-    maxSpilled = 1
+    int maxSpilled = 1;
     #else
-    maxSpilled = 10000
+    int maxSpilled = 10000;
     #endif
-    for (int spill = 0; spill < maxSpilled; ++i) {
+    for (int spill = 0; spill < maxSpilled; ++spill) {
         for (size_t u = 0; u < graph.size(); ++u) {
             for (size_t v = 0; v < graph[u].size(); ++v) {
                 if (graph[u][v] && solution.vertexColors[u] != -1 && solution.vertexColors[u] == solution.vertexColors[v]) {
