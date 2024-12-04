@@ -5,6 +5,7 @@
 #include <chrono>
 #include "math.h"
 #include <random>
+#include <omp.h>
 
 #include "ACOGraphColoring.h"
 
@@ -15,7 +16,7 @@ std::chrono::high_resolution_clock::time_point previous_end_time;
 
 float cumulative_percentage = 0.0;
 int call_count = 0;
-int print_frequency = 5000;  // Print the average every 10 calls
+int print_frequency = 1;  // Print the average every n calls
 
 void profileStart() {
     start_time = std::chrono::high_resolution_clock::now();
@@ -384,23 +385,33 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
     auto start = std::chrono::steady_clock::now(); // Record the start time
 
     while (cycles < params.maxCycles && bestSolutionValue > 0 && std::chrono::steady_clock::now() - start < duration) {
-        //cout << "Starting cycle " << cycles << endl;
+        // if (cycles % 10 == 0) {
+        //     cout << "Starting cycle " << cycles << endl;
+        // }
         int bestAntValue = numeric_limits<int>::max();
         Solution antBest(params.numVertices);
+
+        profileStart();
+        omp_lock_t lock;
+        omp_init_lock(&lock);
+        #pragma omp parallel for
         for (int ant = 1; ant <= params.numAnts; ++ant) {
-            Solution solution(params.numVertices);
-            antFixedK(solution, graph, params, pheromones);
-            reactTabucol(solution, graph, params);
-            
-            if (solution.conflictingEdges == 0 || solution.conflictingEdges < bestAntValue) {
-                bestAntValue = optimizationFunction(solution);
-                antBest = solution;
-                //cout << "TESTING TESTING" << endl;
-                // potential optimization
-                // bestCycleSolution.vertexColors = move(solution.vertexColors); // Move the vector
-                // bestCycleSolution.conflictingEdges = solution.conflictingEdges; // Move the conflictingEdges value
+            Solution s(params.numVertices);
+            antFixedK(s, graph, params, pheromones);
+            reactTabucol(s, graph, params);
+
+            int localBestValue = optimizationFunction(s);
+            if (s.conflictingEdges == 0 || localBestValue < bestAntValue) {
+                omp_set_lock(&lock);
+                if (localBestValue < bestAntValue) {
+                    bestAntValue = localBestValue;
+                    antBest = s;
+                }
+                omp_unset_lock(&lock);
             }
         }
+        omp_destroy_lock(&lock);
+        profileStop();
         if (bestAntValue < bestSolutionValue) {
             //printSolution(antBest);
             colonyBest = antBest;
@@ -417,26 +428,33 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
 void ColorAnt3WithSpilling(Solution& solution, const Graph& graph, Parameters& params) {
     ColorAnt3_RT(solution, graph, params);
     vector<int> conflictCount(graph.size(), 0);
-    for (size_t u = 0; u < graph.size(); ++u) {
-        for (size_t v = 0; v < graph[u].size(); ++v) {
-            if (graph[u][v] && solution.vertexColors[u] != -1 && solution.vertexColors[u] == solution.vertexColors[v]) {
-                conflictCount[u]++;
-                conflictCount[v]++;
+    #ifdef SPILL_ONE_AT_A_TIME
+    maxSpilled = 1
+    #else
+    maxSpilled = 10000
+    #endif
+    for (int spill = 0; spill < maxSpilled; ++i) {
+        for (size_t u = 0; u < graph.size(); ++u) {
+            for (size_t v = 0; v < graph[u].size(); ++v) {
+                if (graph[u][v] && solution.vertexColors[u] != -1 && solution.vertexColors[u] == solution.vertexColors[v]) {
+                    conflictCount[u]++;
+                    conflictCount[v]++;
+                }
             }
         }
-    }
 
-    int maxConflicts = 0;
-    int spillNode = -1;
-    for (size_t i = 0; i < conflictCount.size(); ++i) {
-        if (conflictCount[i] > maxConflicts) {
-            maxConflicts = conflictCount[i];
-            spillNode = i;
+        int maxConflicts = 0;
+        int spillNode = -1;
+        for (size_t i = 0; i < conflictCount.size(); ++i) {
+            if (conflictCount[i] > maxConflicts) {
+                maxConflicts = conflictCount[i];
+                spillNode = i;
+            }
         }
-    }
 
-    if (spillNode == -1) {
-        return;
+        if (spillNode == -1) {
+            return;
+        }
+        solution.vertexColors[spillNode] = -1;
     }
-    solution.vertexColors[spillNode] = -1;
 }
