@@ -25,11 +25,13 @@ struct Solution {
 
 struct Parameters {
     std::vector<std::vector<bool>> allowedColors; // Initialized in the constructor
+    std::vector<float> spillCosts;
     double alpha = 3.0;
     double beta = 16.0;
     double rho = 0.7;
     double maxTime = 100.0;
     double maxTabucolTime = 0.1;
+    double spillCostImportance = 0.0;
     int numVertices; // Required
     int numColors;   // Required
     int maxCycles = 625;
@@ -40,7 +42,8 @@ struct Parameters {
     // Constructor with required numVertices and numColors
     Parameters(int numVertices, int numColors)
         : numVertices(numVertices), numColors(numColors),
-          allowedColors(numVertices, std::vector<bool>(numColors, true)) {} // Matrix of trues
+          allowedColors(numVertices, std::vector<bool>(numColors, true)),
+          spillCosts(numVertices, 1.0) {}
 };
 
 void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params);
