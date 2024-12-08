@@ -123,18 +123,16 @@ public:
                           SmallVectorImpl<Register> &SplitVRegs);
 
   /* ACO */
-  std::vector<unsigned int> vrIndices;
-
-  void makeVrIndices();
-  Graph makeGraph();
-  ColorOptions makeColorOptions();
-  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions);
+  std::vector<unsigned int> makeVirtualRegsList();
+  Graph makeGraph(const std::vector<unsigned int> &virtualRegs);
+  ColorOptions makeColorOptions(const std::vector<unsigned int> &virtualRegs);
+  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions, const std::vector<unsigned int> &virtualRegs);
   // Returns true if a register was spilled, false otherwise
   bool allocateACOColors(const ACOColoringResult &coloring);
   bool isValidPhysReg(MCRegister physReg, LiveInterval *virtReg);
-  void createColors();
+  void createColors(const std::vector<unsigned int> &virtualRegs);
   MCPhysReg getRegisterFromColor(int color, const TargetRegisterClass *rc);
-  bool handleForcedSpills(ColorOptions &options);
+  bool handleForcedSpills(ColorOptions &options, const std::vector<unsigned int> &virtualRegs);
 
   static char ID;
 };
