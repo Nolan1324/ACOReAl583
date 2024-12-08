@@ -1,0 +1,24 @@
+Report:
+00219.c: 1 spills, Compile time: 0s, Runtime: 0m0.001s
+00220.c: 1 spills, Compile time: 0s, Runtime: 0m0.000s
+00216.c: 7 spills, Compile time: 0s, Runtime: 0m0.000s
+00215.c: 6 spills, Compile time: 0s, Runtime: 0m0.000s
+00207.c: 3 spills, Compile time: 0s, Runtime: 0m0.000s
+00206.c: 3 spills, Compile time: 0s, Runtime: 0m0.000s
+00205.c: 4 spills, Compile time: 0s, Runtime: 0m0.001s
+00204.c: 15 spills, Compile time: 1s, Runtime: 0m0.001s
+dfs_graph_traversal.c: 16 spills, Compile time: 0s, Runtime: 0m0.001s
+pascals_triangle.cpp: 96 spills, Compile time: 0s, Runtime: 0m0.001s
+palindromic_substring_count.cpp: 20 spills, Compile time: 1s, Runtime: 0m0.001s
+painter_partition.cpp: 39 spills, Compile time: 1s, Runtime: 0m0.001s
+matrix_chain_multiplication.cpp: 41 spills, Compile time: 1s, Runtime: 0m0.001s
+bitmasking.cpp: 294 spills, Compile time: 3s, Runtime: 0m0.001s
+digit_dp.cpp: 48 spills, Compile time: 1s, Runtime: 0m0.001s
+unique_hats.cpp: 149 spills, Compile time: 2s, Runtime: 0m0.001s
+max_tree_height.cpp: 142 spills, Compile time: 2s, Runtime: 0m0.001s
+maximum_sum_rectangle.cpp: 102 spills, Compile time: 2s, Runtime: 0m0.001s
+game_strategy.cpp: 97 spills, Compile time: 2s, Runtime: 0m0.001s
+n_queens.cpp: 126 spills, Compile time: 1s, Runtime: 0m0.001s
+ordered_power_set.cpp: 144 spills, Compile time: 2s, Runtime: 0m0.001s
+greedy_string_order.cpp: 207 spills, Compile time: 2s, Runtime: 0m0.001s
+largest_cube.cpp: 98 spills, Compile time: 2s, Runtime: 0m0.001s
