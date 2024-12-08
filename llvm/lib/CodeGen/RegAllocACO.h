@@ -71,8 +71,12 @@ class LLVM_LIBRARY_VISIBILITY RAAco : public MachineFunctionPass,
   // selectOrSplit().
   BitVector UsableRegs;
 
-  std::unordered_map<int, std::unordered_set<MCPhysReg>> colorsToRegs{};
-  std::unordered_map<MCPhysReg, int> regsToColors{};
+  struct ColorMappings {
+    std::unordered_map<int, std::unordered_set<MCPhysReg>> colorsToRegs{};
+    std::unordered_map<MCPhysReg, int> regsToColors{};
+  };
+
+
 
   bool LRE_CanEraseVirtReg(Register) override;
   void LRE_WillShrinkVirtReg(Register) override;
@@ -125,13 +129,16 @@ public:
   /* ACO */
   std::vector<unsigned int> makeVirtualRegsList();
   Graph makeGraph(const std::vector<unsigned int> &virtualRegs);
-  ColorOptions makeColorOptions(const std::vector<unsigned int> &virtualRegs);
-  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions, const std::vector<unsigned int> &virtualRegs);
+  int getNumberOfColors(const ColorMappings &mappings);
+  ColorOptions makeColorOptions(const std::vector<unsigned int> &virtualRegs, const ColorMappings &mappings);
+  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions, 
+    RAAco::ColorMappings &colorMappings, const std::vector<unsigned int> &virtualRegs);
   // Returns true if a register was spilled, false otherwise
   bool allocateACOColors(const ACOColoringResult &coloring);
   bool isValidPhysReg(MCRegister physReg, LiveInterval *virtReg);
-  void createColors(const std::vector<unsigned int> &virtualRegs);
-  MCPhysReg getRegisterFromColor(int color, const TargetRegisterClass *rc);
+  MCPhysReg getColorFromPhyReg(const ColorMappings &mappings, MCPhysReg physReg);
+  ColorMappings createColorMappings(const std::vector<unsigned int> &virtualRegs);
+  MCPhysReg getPhyRegFromColor(const ColorMappings &mappings, int color, const TargetRegisterClass *rc);
   bool handleForcedSpills(ColorOptions &options, const std::vector<unsigned int> &virtualRegs);
 
   static char ID;

@@ -312,9 +312,8 @@ Graph RAAco::makeGraph(const std::vector<unsigned int> &virtualRegs) {
   return graph;
 }
 
-void RAAco::createColors(const std::vector<unsigned int> &virtualRegs) {
-  colorsToRegs.clear();
-  regsToColors.clear();
+RAAco::ColorMappings RAAco::createColorMappings(const std::vector<unsigned int> &virtualRegs) {
+  RAAco::ColorMappings mappings;
 
   const int num_elements = TRI->getNumRegUnits();
 
@@ -363,22 +362,24 @@ void RAAco::createColors(const std::vector<unsigned int> &virtualRegs) {
 
     if (representative_to_color.count(representative) == 0) {
       representative_to_color[representative] = currentColor;
-      regsToColors[reg] = currentColor;
+      mappings.regsToColors[reg] = currentColor;
       currentColor++;
     } else {
-      regsToColors[reg] = representative_to_color[representative];
+      mappings.regsToColors[reg] = representative_to_color[representative];
     }
   }
 
-  for (auto &[reg, color] : regsToColors) {
+  for (auto &[reg, color] : mappings.regsToColors) {
     LLVM_DEBUG(dbgs() << TRI->getName(reg) << " = " << color << "\n");
-    colorsToRegs[color].insert(reg);
+    mappings.colorsToRegs[color].insert(reg);
   }
+  
+  return mappings;
 }
 
-ColorOptions RAAco::makeColorOptions(const std::vector<unsigned int> &virtualRegs) {
+ColorOptions RAAco::makeColorOptions(const std::vector<unsigned int> &virtualRegs, const ColorMappings &colorMappings) {
   ColorOptions colorOptions(virtualRegs.size(),
-                            std::vector<bool>(colorsToRegs.size(), false));
+                            std::vector<bool>(getNumberOfColors(colorMappings), false));
 
   for (int i = 0; i < virtualRegs.size(); ++i) {
     Register vr = Register::index2VirtReg(virtualRegs[i]);
@@ -391,7 +392,7 @@ ColorOptions RAAco::makeColorOptions(const std::vector<unsigned int> &virtualReg
     for (auto reg : allocOrder) {
       auto interference = Matrix->checkInterference(LIS->getInterval(vr), reg);
       if (interference == LiveRegMatrix::InterferenceKind::IK_Free) {
-        colorOptions[i][regsToColors[reg]] = true;
+        colorOptions[i][getColorFromPhyReg(colorMappings, reg)] = true;
       }
     }
   }
@@ -399,9 +400,18 @@ ColorOptions RAAco::makeColorOptions(const std::vector<unsigned int> &virtualReg
   return colorOptions;
 }
 
-MCPhysReg RAAco::getRegisterFromColor(int color,
+int RAAco::getNumberOfColors(const ColorMappings &mappings) {
+  return mappings.colorsToRegs.size();
+}
+
+MCPhysReg RAAco::getColorFromPhyReg(const ColorMappings &mappings, MCPhysReg physReg) {
+  return mappings.regsToColors.at(physReg);
+}
+
+
+MCPhysReg RAAco::getPhyRegFromColor(const ColorMappings &mappings, int color,
                                       const TargetRegisterClass *rc) {
-  auto &regs = colorsToRegs[color];
+  auto &regs = mappings.colorsToRegs.at(color);
   for (MCPhysReg reg : regs) {
     if (rc->contains(reg)) {
       return reg;
@@ -431,7 +441,9 @@ bool RAAco::handleForcedSpills(ColorOptions &options, const std::vector<unsigned
 }
 
 ACOColoringResult
-RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions, const std::vector<unsigned int> &virtualRegs) {
+RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions, 
+    RAAco::ColorMappings &colorMappings, const std::vector<unsigned int> &virtualRegs) {
+  
   Parameters params(graph.size(), colorOptions[0].size());
   params.allowedColors = colorOptions;
 
@@ -478,7 +490,7 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions, const std::vector
     if (colors[i] >= 0) {
       // negative color will indicate a spill
       physReg = MCRegister{
-          static_cast<MCPhysReg>(getRegisterFromColor(colors[i], rc))};
+          static_cast<MCPhysReg>(getPhyRegFromColor(colorMappings, colors[i], rc))};
     }
 
     coloring[virtReg] = physReg;
@@ -590,8 +602,8 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
       break;
     }
 
-    createColors(virtualRegs);
-    ColorOptions options = makeColorOptions(virtualRegs);
+    RAAco::ColorMappings colorMappings = createColorMappings(virtualRegs);
+    ColorOptions options = makeColorOptions(virtualRegs, colorMappings);
 
     LLVM_DEBUG(dbgs() << "** COLOR OPTIONS MATRIX **\n");
     for (auto &row : options) {
@@ -610,7 +622,7 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
 
     printGraph(graph);
 
-    ACOColoringResult coloring = doACOColoring(graph, options, virtualRegs);
+    ACOColoringResult coloring = doACOColoring(graph, options, colorMappings, virtualRegs);
     spillsOccurred = allocateACOColors(coloring);
     Matrix->invalidateVirtRegs();
   } while (spillsOccurred);
