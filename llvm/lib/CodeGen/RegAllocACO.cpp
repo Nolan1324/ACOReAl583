@@ -38,6 +38,7 @@
 #include <sstream>
 #include <unordered_set>
 
+#include "RegAllocACO.h"
 #include "ACOGraphColoring.h"
 
 using namespace llvm;
@@ -81,18 +82,7 @@ static RegisterRegAlloc acoRegAlloc("aco", "aco register allocator",
                                     createAcoRegisterAllocator);
 
 namespace {
-struct CompSpillWeight {
-  bool operator()(const LiveInterval *A, const LiveInterval *B) const {
-    return A->weight() < B->weight();
-  }
-};
-} // namespace
 
-using ACOColoringResult = std::map<LiveInterval *, std::optional<MCRegister>>;
-using Graph = std::vector<std::vector<bool>>;
-using ColorOptions = std::vector<std::vector<bool>>;
-
-namespace {
 Graph makeEmptyGraph(unsigned int n) {
   return std::vector<std::vector<bool>>(n, std::vector<bool>(n, false));
 }
@@ -106,102 +96,10 @@ void printGraph(const Graph &graph) {
     LLVM_DEBUG(dbgs() << "\n");
   }
 }
-} // namespace
 
-namespace {
-/// RAAco provides a minimal implementation of the aco register allocation
-/// algorithm. It prioritizes live virtual registers by spill weight and spills
-/// whenever a register is unavailable. This is not practical in production but
-/// provides a useful baseline both for measuring other allocators and comparing
-/// the speed of the aco algorithm against other styles of allocators.
-class RAAco : public MachineFunctionPass,
-              public RegAllocBase,
-              private LiveRangeEdit::Delegate {
-  // context
-  MachineFunction *MF = nullptr;
-
-  // state
-  std::unique_ptr<Spiller> SpillerInstance;
-  std::priority_queue<const LiveInterval *, std::vector<const LiveInterval *>,
-                      CompSpillWeight>
-      Queue;
-
-  // Scratch space.  Allocated here to avoid repeated malloc calls in
-  // selectOrSplit().
-  BitVector UsableRegs;
-
-  std::unordered_map<int, std::unordered_set<MCPhysReg>> colorsToRegs{};
-  std::unordered_map<MCPhysReg, int> regsToColors{};
-
-  bool LRE_CanEraseVirtReg(Register) override;
-  void LRE_WillShrinkVirtReg(Register) override;
-
-public:
-  RAAco(const RegAllocFilterFunc F = nullptr);
-
-  /// Return the pass name.
-  StringRef getPassName() const override { return "Aco Register Allocator"; }
-
-  /// RAAco analysis usage.
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  void releaseMemory() override;
-
-  Spiller &spiller() override { return *SpillerInstance; }
-
-  void enqueueImpl(const LiveInterval *LI) override { Queue.push(LI); }
-
-  const LiveInterval *dequeue() override {
-    if (Queue.empty())
-      return nullptr;
-    const LiveInterval *LI = Queue.top();
-    Queue.pop();
-    return LI;
-  }
-
-  MCRegister selectOrSplit(const LiveInterval &VirtReg,
-                           SmallVectorImpl<Register> &SplitVRegs) override;
-
-  /// Perform register allocation.
-  bool runOnMachineFunction(MachineFunction &mf) override;
-
-  MachineFunctionProperties getRequiredProperties() const override {
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::NoPHIs);
-  }
-
-  MachineFunctionProperties getClearedProperties() const override {
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::IsSSA);
-  }
-
-  // Helper for spilling all live virtual registers currently unified under preg
-  // that interfere with the most recently queried lvr.  Return true if spilling
-  // was successful, and append any new spilled/split intervals to splitLVRs.
-  bool spillInterferences(const LiveInterval &VirtReg, MCRegister PhysReg,
-                          SmallVectorImpl<Register> &SplitVRegs);
-
-  /* ACO */
-  std::vector<unsigned int> vrIndices;
-
-  void makeVrIndices();
-  Graph makeGraph();
-  ColorOptions makeColorOptions();
-  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions);
-  // Returns true if a register was spilled, false otherwise
-  bool allocateACOColors(const ACOColoringResult &coloring);
-  bool isValidPhysReg(MCRegister physReg, LiveInterval *virtReg);
-  void createColors();
-  MCPhysReg getRegisterFromColor(int color, const TargetRegisterClass *rc);
-  bool handleForcedSpills(ColorOptions &options);
-
-  static char ID;
-};
+}
 
 char RAAco::ID = 0;
-
-} // end anonymous namespace
-
 char &llvm::RAAcoID = RAAco::ID;
 
 INITIALIZE_PASS_BEGIN(RAAco, "regallocaco", "Aco Register Allocator", false,
