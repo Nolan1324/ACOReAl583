@@ -184,17 +184,16 @@ public:
   /* ACO */
   std::vector<unsigned int> vrIndices;
 
+  void makeVrIndices();
   Graph makeGraph();
   ColorOptions makeColorOptions();
-  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions,
-                                  const std::vector<unsigned int> &mustSpill);
+  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions);
   // Returns true if a register was spilled, false otherwise
   bool allocateACOColors(const ACOColoringResult &coloring);
   bool isValidPhysReg(MCRegister physReg, LiveInterval *virtReg);
   void createColors();
   MCPhysReg getRegisterFromColor(int color, const TargetRegisterClass *rc);
-  std::vector<unsigned int> isolateForcedSpills(Graph &graph,
-                                                ColorOptions &options);
+  bool handleForcedSpills(ColorOptions &options);
 
   static char ID;
 };
@@ -377,6 +376,18 @@ MCRegister RAAco::selectOrSplit(const LiveInterval &VirtReg,
   return 0;
 }
 
+void RAAco::makeVrIndices() {
+  unsigned int numTotalVirtRegs = MRI->getNumVirtRegs();
+  vrIndices.clear();
+  for (unsigned i = 0; i < numTotalVirtRegs; ++i) {
+    Register Reg1 = Register::index2VirtReg(i);
+    if (MRI->reg_nodbg_empty(Reg1) || !LIS->hasInterval(Reg1)) {
+      continue;
+    }
+    vrIndices.push_back(i);
+  }
+}
+
 Graph RAAco::makeGraph() {
   Graph graph = makeEmptyGraph(vrIndices.size());
 
@@ -499,28 +510,29 @@ MCPhysReg RAAco::getRegisterFromColor(int color,
   }
 }
 
-std::vector<unsigned int> RAAco::isolateForcedSpills(Graph &graph,
-                                                     ColorOptions &options) {
+bool RAAco::handleForcedSpills(ColorOptions &options) {
   std::vector<unsigned int> mustSpill;
   for (int i = 0; i < vrIndices.size(); ++i) {
     auto &options_row = options[i];
     if (std::all_of(options_row.begin(), options_row.end(),
                     [](int x) { return x == 0; })) {
-      // Turn i into an isolated node in the graph
       mustSpill.push_back(i);
-      for (int j = 0; j < vrIndices.size(); ++j) {
-        graph[i][j] = 0;
-        graph[j][i] = 0;
-      }
-      options_row[0] = 1;
     }
   }
-  return mustSpill;
+
+  SmallVector<Register, 4> SplitVRegs;
+  for(unsigned int i : mustSpill) {
+    errs() << "Spilling VR " << vrIndices[i] << "\n";
+    auto vr = Register::index2VirtReg(vrIndices[i]);
+    LiveRangeEdit LRE(&LIS->getInterval(vr), SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
+    spiller().spill(LRE);
+  }
+
+  return !mustSpill.empty();
 }
 
 ACOColoringResult
-RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
-                     const std::vector<unsigned int> &mustSpill) {
+RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions) {
   Parameters params(graph.size(), colorOptions[0].size());
   params.allowedColors = colorOptions;
 
@@ -548,12 +560,6 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
   auto &colors = solution.vertexColors;
 
   ACOColoringResult coloring{};
-
-  for (unsigned int vrIdx : mustSpill) {
-    errs() << "Changing VR " << vrIdx << " color from " << colors.at(vrIdx)
-           << " to -1\n";
-    colors[vrIdx] = -1;
-  }
 
   //  LLVM_DEBUG(dbgs() << "**** ACO COLORING ****\n");
 
@@ -680,19 +686,8 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   bool spillsOccurred{false};
 
   do {
-    ACOColoringResult coloring;
-
-    unsigned int numTotalVirtRegs = MRI->getNumVirtRegs();
-    vrIndices.clear();
-    for (unsigned i = 0; i < numTotalVirtRegs; ++i) {
-      Register Reg1 = Register::index2VirtReg(i);
-      if (MRI->reg_nodbg_empty(Reg1) || !LIS->hasInterval(Reg1)) {
-        continue;
-      }
-      vrIndices.push_back(i);
-    }
-
-    if (vrIndices.empty()) {
+    makeVrIndices();
+    if(vrIndices.empty()) {
       break;
     }
 
@@ -707,12 +702,16 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
       LLVM_DEBUG(dbgs() << "\n");
     }
 
+    if(handleForcedSpills(options)) {
+      Matrix->invalidateVirtRegs();
+      continue;
+    }
+    
     Graph graph = makeGraph();
 
-    std::vector<unsigned int> mustSpill = isolateForcedSpills(graph, options);
     printGraph(graph);
 
-    coloring = doACOColoring(graph, options, mustSpill);
+    ACOColoringResult coloring = doACOColoring(graph, options);
     spillsOccurred = allocateACOColors(coloring);
     Matrix->invalidateVirtRegs();
   } while (spillsOccurred);
