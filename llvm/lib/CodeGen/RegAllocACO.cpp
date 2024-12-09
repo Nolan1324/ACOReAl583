@@ -78,6 +78,10 @@ static cl::opt<int>
     Gap("aco-gap", cl::desc("Cycle gap (suggested: sqrt of aco-max-cycles)"),
         cl::init(25));
 
+static cl::opt<double>
+    SpillCostImportance("aco-spill-cost-importance", cl::desc("Spill cost importance"),
+        cl::init(0));
+
 static RegisterRegAlloc acoRegAlloc("aco", "aco register allocator",
                                     createAcoRegisterAllocator);
 
@@ -462,6 +466,7 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
   params.maxTabulcolCycles = MaxTabucolCycles;
   params.numAnts = NumAnts;
   params.gap = Gap;
+  params.spillCostImportance = SpillCostImportance;
 
   Solution solution(graph.size());
   errs() << "Adjacency matrix size: " << graph.size() << "x"
@@ -586,6 +591,7 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   errs() << "MaxTabucolCycles = " << MaxTabucolCycles << "\n";
   errs() << "NumAnts = " << NumAnts << "\n";
   errs() << "Gap = " << Gap << "\n";
+  errs() << "SpillCostImportance = " << SpillCostImportance << "\n";
 
   MF = &mf;
   RegAllocBase::init(getAnalysis<VirtRegMapWrapperLegacy>().getVRM(),
