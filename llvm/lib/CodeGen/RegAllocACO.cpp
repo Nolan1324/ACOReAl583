@@ -38,6 +38,7 @@
 #include <sstream>
 #include <unordered_set>
 
+#include "RegAllocACO.h"
 #include "ACOGraphColoring.h"
 
 using namespace llvm;
@@ -81,18 +82,7 @@ static RegisterRegAlloc acoRegAlloc("aco", "aco register allocator",
                                     createAcoRegisterAllocator);
 
 namespace {
-struct CompSpillWeight {
-  bool operator()(const LiveInterval *A, const LiveInterval *B) const {
-    return A->weight() < B->weight();
-  }
-};
-} // namespace
 
-using ACOColoringResult = std::map<LiveInterval *, std::optional<MCRegister>>;
-using Graph = std::vector<std::vector<bool>>;
-using ColorOptions = std::vector<std::vector<bool>>;
-
-namespace {
 Graph makeEmptyGraph(unsigned int n) {
   return std::vector<std::vector<bool>>(n, std::vector<bool>(n, false));
 }
@@ -106,103 +96,10 @@ void printGraph(const Graph &graph) {
     LLVM_DEBUG(dbgs() << "\n");
   }
 }
-} // namespace
 
-namespace {
-/// RAAco provides a minimal implementation of the aco register allocation
-/// algorithm. It prioritizes live virtual registers by spill weight and spills
-/// whenever a register is unavailable. This is not practical in production but
-/// provides a useful baseline both for measuring other allocators and comparing
-/// the speed of the aco algorithm against other styles of allocators.
-class RAAco : public MachineFunctionPass,
-              public RegAllocBase,
-              private LiveRangeEdit::Delegate {
-  // context
-  MachineFunction *MF = nullptr;
-
-  // state
-  std::unique_ptr<Spiller> SpillerInstance;
-  std::priority_queue<const LiveInterval *, std::vector<const LiveInterval *>,
-                      CompSpillWeight>
-      Queue;
-
-  // Scratch space.  Allocated here to avoid repeated malloc calls in
-  // selectOrSplit().
-  BitVector UsableRegs;
-
-  std::unordered_map<int, std::unordered_set<MCPhysReg>> colorsToRegs{};
-  std::unordered_map<MCPhysReg, int> regsToColors{};
-
-  bool LRE_CanEraseVirtReg(Register) override;
-  void LRE_WillShrinkVirtReg(Register) override;
-
-public:
-  RAAco(const RegAllocFilterFunc F = nullptr);
-
-  /// Return the pass name.
-  StringRef getPassName() const override { return "Aco Register Allocator"; }
-
-  /// RAAco analysis usage.
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  void releaseMemory() override;
-
-  Spiller &spiller() override { return *SpillerInstance; }
-
-  void enqueueImpl(const LiveInterval *LI) override { Queue.push(LI); }
-
-  const LiveInterval *dequeue() override {
-    if (Queue.empty())
-      return nullptr;
-    const LiveInterval *LI = Queue.top();
-    Queue.pop();
-    return LI;
-  }
-
-  MCRegister selectOrSplit(const LiveInterval &VirtReg,
-                           SmallVectorImpl<Register> &SplitVRegs) override;
-
-  /// Perform register allocation.
-  bool runOnMachineFunction(MachineFunction &mf) override;
-
-  MachineFunctionProperties getRequiredProperties() const override {
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::NoPHIs);
-  }
-
-  MachineFunctionProperties getClearedProperties() const override {
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::IsSSA);
-  }
-
-  // Helper for spilling all live virtual registers currently unified under preg
-  // that interfere with the most recently queried lvr.  Return true if spilling
-  // was successful, and append any new spilled/split intervals to splitLVRs.
-  bool spillInterferences(const LiveInterval &VirtReg, MCRegister PhysReg,
-                          SmallVectorImpl<Register> &SplitVRegs);
-
-  /* ACO */
-  std::vector<unsigned int> vrIndices;
-
-  Graph makeGraph();
-  ColorOptions makeColorOptions();
-  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions,
-                                  const std::vector<unsigned int> &mustSpill);
-  // Returns true if a register was spilled, false otherwise
-  bool allocateACOColors(const ACOColoringResult &coloring);
-  bool isValidPhysReg(MCRegister physReg, LiveInterval *virtReg);
-  void createColors();
-  MCPhysReg getRegisterFromColor(int color, const TargetRegisterClass *rc);
-  std::vector<unsigned int> isolateForcedSpills(Graph &graph,
-                                                ColorOptions &options);
-
-  static char ID;
-};
+}
 
 char RAAco::ID = 0;
-
-} // end anonymous namespace
-
 char &llvm::RAAcoID = RAAco::ID;
 
 INITIALIZE_PASS_BEGIN(RAAco, "regallocaco", "Aco Register Allocator", false,
@@ -377,17 +274,30 @@ MCRegister RAAco::selectOrSplit(const LiveInterval &VirtReg,
   return 0;
 }
 
-Graph RAAco::makeGraph() {
-  Graph graph = makeEmptyGraph(vrIndices.size());
+std::vector<unsigned int> RAAco::makeVirtualRegsList() {
+  unsigned int numTotalVirtRegs = MRI->getNumVirtRegs();
+  std::vector<unsigned int> virtualRegs;
+  for (unsigned i = 0; i < numTotalVirtRegs; ++i) {
+    Register Reg1 = Register::index2VirtReg(i);
+    if (MRI->reg_nodbg_empty(Reg1) || !LIS->hasInterval(Reg1)) {
+      continue;
+    }
+    virtualRegs.push_back(i);
+  }
+  return virtualRegs;
+}
 
-  for (int i = 0; i < vrIndices.size(); ++i) {
-    Register Reg1 = Register::index2VirtReg(vrIndices[i]);
-    for (int j = 0; j < vrIndices.size(); ++j) {
+Graph RAAco::makeGraph(const std::vector<unsigned int> &virtualRegs) {
+  Graph graph = makeEmptyGraph(virtualRegs.size());
+
+  for (int i = 0; i < virtualRegs.size(); ++i) {
+    Register Reg1 = Register::index2VirtReg(virtualRegs[i]);
+    for (int j = 0; j < virtualRegs.size(); ++j) {
       if (i == j) {
         continue;
       }
 
-      Register Reg2 = Register::index2VirtReg(vrIndices[j]);
+      Register Reg2 = Register::index2VirtReg(virtualRegs[j]);
 
       if (LIS->getInterval(Reg1).empty() || LIS->getInterval(Reg2).empty()) {
         graph[i][j] = false;
@@ -402,9 +312,8 @@ Graph RAAco::makeGraph() {
   return graph;
 }
 
-void RAAco::createColors() {
-  colorsToRegs.clear();
-  regsToColors.clear();
+RAAco::ColorMappings RAAco::createColorMappings(const std::vector<unsigned int> &virtualRegs) {
+  RAAco::ColorMappings mappings;
 
   const int num_elements = TRI->getNumRegUnits();
 
@@ -423,7 +332,7 @@ void RAAco::createColors() {
 
   std::set<MCPhysReg> usedRegs{};
 
-  for (unsigned int i : vrIndices) {
+  for (unsigned int i : virtualRegs) {
     Register virtReg = Register::index2VirtReg(i);
     if (LIS->hasInterval(virtReg) && !MRI->reg_nodbg_empty(virtReg)) {
       const TargetRegisterClass *rc = MRI->getRegClass(virtReg);
@@ -453,25 +362,27 @@ void RAAco::createColors() {
 
     if (representative_to_color.count(representative) == 0) {
       representative_to_color[representative] = currentColor;
-      regsToColors[reg] = currentColor;
+      mappings.regsToColors[reg] = currentColor;
       currentColor++;
     } else {
-      regsToColors[reg] = representative_to_color[representative];
+      mappings.regsToColors[reg] = representative_to_color[representative];
     }
   }
 
-  for (auto &[reg, color] : regsToColors) {
+  for (auto &[reg, color] : mappings.regsToColors) {
     LLVM_DEBUG(dbgs() << TRI->getName(reg) << " = " << color << "\n");
-    colorsToRegs[color].insert(reg);
+    mappings.colorsToRegs[color].insert(reg);
   }
+  
+  return mappings;
 }
 
-ColorOptions RAAco::makeColorOptions() {
-  ColorOptions colorOptions(vrIndices.size(),
-                            std::vector<bool>(colorsToRegs.size(), false));
+ColorOptions RAAco::makeColorOptions(const std::vector<unsigned int> &virtualRegs, const ColorMappings &colorMappings) {
+  ColorOptions colorOptions(virtualRegs.size(),
+                            std::vector<bool>(getNumberOfColors(colorMappings), false));
 
-  for (int i = 0; i < vrIndices.size(); ++i) {
-    Register vr = Register::index2VirtReg(vrIndices[i]);
+  for (int i = 0; i < virtualRegs.size(); ++i) {
+    Register vr = Register::index2VirtReg(virtualRegs[i]);
     // if (MRI->reg_nodbg_empty(vr) || !LIS->hasInterval(vr)) {
     //   colorOptions[i][0] = true;
     //   continue;
@@ -481,7 +392,7 @@ ColorOptions RAAco::makeColorOptions() {
     for (auto reg : allocOrder) {
       auto interference = Matrix->checkInterference(LIS->getInterval(vr), reg);
       if (interference == LiveRegMatrix::InterferenceKind::IK_Free) {
-        colorOptions[i][regsToColors[reg]] = true;
+        colorOptions[i][getColorFromPhyReg(colorMappings, reg)] = true;
       }
     }
   }
@@ -489,9 +400,18 @@ ColorOptions RAAco::makeColorOptions() {
   return colorOptions;
 }
 
-MCPhysReg RAAco::getRegisterFromColor(int color,
+int RAAco::getNumberOfColors(const ColorMappings &mappings) {
+  return mappings.colorsToRegs.size();
+}
+
+MCPhysReg RAAco::getColorFromPhyReg(const ColorMappings &mappings, MCPhysReg physReg) {
+  return mappings.regsToColors.at(physReg);
+}
+
+
+MCPhysReg RAAco::getPhyRegFromColor(const ColorMappings &mappings, int color,
                                       const TargetRegisterClass *rc) {
-  auto &regs = colorsToRegs[color];
+  auto &regs = mappings.colorsToRegs.at(color);
   for (MCPhysReg reg : regs) {
     if (rc->contains(reg)) {
       return reg;
@@ -499,28 +419,31 @@ MCPhysReg RAAco::getRegisterFromColor(int color,
   }
 }
 
-std::vector<unsigned int> RAAco::isolateForcedSpills(Graph &graph,
-                                                     ColorOptions &options) {
+bool RAAco::handleForcedSpills(ColorOptions &options, const std::vector<unsigned int> &virtualRegs) {
   std::vector<unsigned int> mustSpill;
-  for (int i = 0; i < vrIndices.size(); ++i) {
+  for (int i = 0; i < virtualRegs.size(); ++i) {
     auto &options_row = options[i];
     if (std::all_of(options_row.begin(), options_row.end(),
                     [](int x) { return x == 0; })) {
-      // Turn i into an isolated node in the graph
       mustSpill.push_back(i);
-      for (int j = 0; j < vrIndices.size(); ++j) {
-        graph[i][j] = 0;
-        graph[j][i] = 0;
-      }
-      options_row[0] = 1;
     }
   }
-  return mustSpill;
+
+  SmallVector<Register, 4> SplitVRegs;
+  for(unsigned int i : mustSpill) {
+    errs() << "Spilling VR " << virtualRegs[i] << "\n";
+    auto vr = Register::index2VirtReg(virtualRegs[i]);
+    LiveRangeEdit LRE(&LIS->getInterval(vr), SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
+    spiller().spill(LRE);
+  }
+
+  return !mustSpill.empty();
 }
 
 ACOColoringResult
-RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
-                     const std::vector<unsigned int> &mustSpill) {
+RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions, 
+    RAAco::ColorMappings &colorMappings, const std::vector<unsigned int> &virtualRegs) {
+  
   Parameters params(graph.size(), colorOptions[0].size());
   params.allowedColors = colorOptions;
 
@@ -549,17 +472,11 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
 
   ACOColoringResult coloring{};
 
-  for (unsigned int vrIdx : mustSpill) {
-    errs() << "Changing VR " << vrIdx << " color from " << colors.at(vrIdx)
-           << " to -1\n";
-    colors[vrIdx] = -1;
-  }
-
   //  LLVM_DEBUG(dbgs() << "**** ACO COLORING ****\n");
 
   // convert output of ACO to useful format for actual allocation
   for (unsigned int i = 0; i < colors.size(); ++i) {
-    Register r{Register::index2VirtReg(vrIndices[i])};
+    Register r{Register::index2VirtReg(virtualRegs[i])};
     if (MRI->reg_nodbg_empty(r) || !LIS->hasInterval(r)) {
       //      LLVM_DEBUG(dbgs() << "Encountered unused virtual reg in aco graph:
       //      " << r << '\n');
@@ -573,7 +490,7 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
     if (colors[i] >= 0) {
       // negative color will indicate a spill
       physReg = MCRegister{
-          static_cast<MCPhysReg>(getRegisterFromColor(colors[i], rc))};
+          static_cast<MCPhysReg>(getPhyRegFromColor(colorMappings, colors[i], rc))};
     }
 
     coloring[virtReg] = physReg;
@@ -584,7 +501,7 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
       name = "spilled!";
     }
 
-    LLVM_DEBUG(dbgs() << "VR " << i << " (real idx " << vrIndices[i]
+    LLVM_DEBUG(dbgs() << "VR " << i << " (real idx " << virtualRegs[i]
                       << ") = " << colors[i] << " (" << name << ")\n");
   }
 
@@ -680,24 +597,13 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   bool spillsOccurred{false};
 
   do {
-    ACOColoringResult coloring;
-
-    unsigned int numTotalVirtRegs = MRI->getNumVirtRegs();
-    vrIndices.clear();
-    for (unsigned i = 0; i < numTotalVirtRegs; ++i) {
-      Register Reg1 = Register::index2VirtReg(i);
-      if (MRI->reg_nodbg_empty(Reg1) || !LIS->hasInterval(Reg1)) {
-        continue;
-      }
-      vrIndices.push_back(i);
-    }
-
-    if (vrIndices.empty()) {
+    std::vector<unsigned int> virtualRegs = makeVirtualRegsList();
+    if(virtualRegs.empty()) {
       break;
     }
 
-    createColors();
-    ColorOptions options = makeColorOptions();
+    RAAco::ColorMappings colorMappings = createColorMappings(virtualRegs);
+    ColorOptions options = makeColorOptions(virtualRegs, colorMappings);
 
     LLVM_DEBUG(dbgs() << "** COLOR OPTIONS MATRIX **\n");
     for (auto &row : options) {
@@ -707,12 +613,16 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
       LLVM_DEBUG(dbgs() << "\n");
     }
 
-    Graph graph = makeGraph();
+    if(handleForcedSpills(options, virtualRegs)) {
+      Matrix->invalidateVirtRegs();
+      continue;
+    }
+    
+    Graph graph = makeGraph(virtualRegs);
 
-    std::vector<unsigned int> mustSpill = isolateForcedSpills(graph, options);
     printGraph(graph);
 
-    coloring = doACOColoring(graph, options, mustSpill);
+    ACOColoringResult coloring = doACOColoring(graph, options, colorMappings, virtualRegs);
     spillsOccurred = allocateACOColors(coloring);
     Matrix->invalidateVirtRegs();
   } while (spillsOccurred);
