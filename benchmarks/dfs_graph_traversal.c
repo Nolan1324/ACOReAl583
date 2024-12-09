@@ -86,7 +86,9 @@ void DFSTraversal(struct Graph* graph, int* order, int orderSize) {
 }
 
 int main() {
-	int vertices = 4;
+	srand(42);
+
+	int vertices = 11000; //change the graph size, impacts benchmark size
 	struct Graph* graph = createGraph(vertices);
 
 	addEdge(graph, 2, 0);
@@ -95,6 +97,14 @@ int main() {
 	addEdge(graph, 0, 1);
 	addEdge(graph, 3, 3);
 	addEdge(graph, 1, 3);
+	for(int i = 0; i < (vertices*vertices/2); i++) { 
+		int random_index = rand() % 100;
+		int random_index2 = rand() % 100;
+		while(random_index == random_index2){
+			random_index2 = rand() % 100;
+		}
+		addEdge(graph, random_index, random_index2);
+	} 
 
 	int order[] = {2, 0, 1, 3};
 	int orderSize = sizeof(order) / sizeof(order[0]);

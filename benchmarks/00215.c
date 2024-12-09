@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 extern int printf(const char *format, ...);
 static void kb_wait_1(void)
 {
@@ -94,6 +96,7 @@ static void kb_wait_4(void)
 }
 int main()
 {
+    FILE *null_file = freopen("/dev/null", "w", stdout); //trash output (this benchmark creates more than 1gb of data otherwise)
     printf("begin\n");
     kb_wait_1();
     kb_wait_2();
@@ -102,7 +105,7 @@ int main()
     kb_wait_3();
     kb_wait_4();
     printf("end\n");
-    for(int i = 0; i < 9999999; i++) { //change i for benchmark runtime
+    for(int i = 0; i < 19999999; i++) { //change i for benchmark runtime
         kb_wait_1();
         kb_wait_2();
         kb_wait_2_1();
@@ -110,7 +113,15 @@ int main()
         kb_wait_3();
         kb_wait_4();
     }
-    return 0;
+    freopen("/dev/tty", "w", stdout); //this is so it still gives output without creating a huge file
+    kb_wait_1();
+    kb_wait_2();
+    kb_wait_2_1();
+    kb_wait_2_2();
+    kb_wait_3();
+    kb_wait_4();
+    // return 0;
+
 }
 
 //Source: https://github.com/c-testsuite/c-testsuite/blob/master/tests/single-exec/00215.c
