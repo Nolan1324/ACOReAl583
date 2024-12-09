@@ -18,6 +18,7 @@ PT cases[] = {
 };
 
 int main() {
+	FILE *null_file = freopen("/dev/null", "w", stdout); //trash output
     int i, j;
 
     for(j=0; j < sizeof(cases)/sizeof(cases[0]); j++) {
@@ -29,7 +30,28 @@ int main() {
 	printf("cases[%d].k=%ld\n", j, cases[j].k);
 	printf("\n");
     }
-    return 0;
+    // return 0;
+	for(int k = 0; k < 999999; k++) { //change k to control benchmark runtime
+		for(j=0; j < sizeof(cases)/sizeof(cases[0]); j++) {
+		for(i=0; i < sizeof(cases->c)/sizeof(cases->c[0]); i++)
+			printf("cases[%d].c[%d]=%ld\n", j, i, cases[j].c[i]);
+
+		printf("cases[%d].b=%ld\n", j, cases[j].b);
+		printf("cases[%d].e=%ld\n", j, cases[j].e);
+		printf("cases[%d].k=%ld\n", j, cases[j].k);
+		printf("\n");
+		}		
+	}
+	freopen("/dev/tty", "w", stdout); //this is so it still gives output without creating a huge file
+	for(j=0; j < sizeof(cases)/sizeof(cases[0]); j++) {
+	for(i=0; i < sizeof(cases->c)/sizeof(cases->c[0]); i++)
+	    printf("cases[%d].c[%d]=%ld\n", j, i, cases[j].c[i]);
+
+	printf("cases[%d].b=%ld\n", j, cases[j].b);
+	printf("cases[%d].e=%ld\n", j, cases[j].e);
+	printf("cases[%d].k=%ld\n", j, cases[j].k);
+	printf("\n");
+    }
 }
 
 //source: https://github.com/c-testsuite/c-testsuite/blob/master/tests/single-exec/00205.c

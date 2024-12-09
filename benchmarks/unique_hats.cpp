@@ -72,5 +72,22 @@ int main() {
     
     cout << numberWays(caps) << endl;
 
-    return 0;
+    // additional testing
+    vector<vector<int>> caps1;
+    std::mt19937 gen(42); 
+    std::uniform_int_distribution<int> dist(1, 20);
+    for(int k = 0; k < 18; k++) { //change k to change benchmark runtime
+        vector<vector<int>> caps1 ={{}};
+        for(int i = 1; i < dist(gen); i++) {
+            vector<int> t;
+            for(int j = 0; j < dist(gen); j++) {
+                t.push_back(dist(gen));
+            }
+            caps1.push_back(t);
+        }
+        
+        cout << numberWays(caps1) << endl;
+    }
+
+    // return 0;
 }

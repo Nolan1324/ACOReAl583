@@ -81,5 +81,10 @@ int main()
 	long long a = 123, b = 1024;
 	cout << "digit sum for given range : "
 		<< rangeDigitSum(a, b) << endl;
-	return 0;
+	std::mt19937 gen(42); 
+    std::uniform_int_distribution<int> dist(1, 2220);
+	for(int i = 0; i < 2999999; i++) {
+		rangeDigitSum(dist(gen), dist(gen));
+	}
+	// return 0;
 }

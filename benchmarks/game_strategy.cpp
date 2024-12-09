@@ -1,7 +1,7 @@
 // C++ program to calculate the maximum amount one can collect
 // using the optimal strategy from index i to index j
 // using  memoziation
-
+#include <random>
 #include <bits/stdc++.h>
 using namespace std;
 int maxAmount(int i, int j, vector<int> &arr, 
@@ -54,8 +54,14 @@ int maximumAmount(vector<int> &arr) {
 int main() {
   
     vector<int> arr = {5, 3, 7, 10};
-    int res = maximumAmount(arr);
-    cout << res << endl;
+    std::mt19937 generator(42);
+    for(int i = 0; i < 1500; i++) { //change i to change benchmark runtime
+        int res = maximumAmount(arr);
+        cout << res << endl;
+        std::uniform_int_distribution<int> dist(0, 100); 
+        arr.push_back(dist(generator));
+    }
+    
 
-    return 0;
+    // return 0;
 }

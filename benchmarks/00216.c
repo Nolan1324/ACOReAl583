@@ -278,6 +278,16 @@ int main()
   test_compound_with_relocs();
   test_multi_relocs();
   test_zero_init();
+  FILE *null_file = freopen("/dev/null", "w", stdout); //trash output (this benchmark creates more than 1gb of data otherwise)
+  for (int i = 0; i < 39999999; i++) { //change i to change benchmark runtime
+    test_compound_with_relocs();
+    test_multi_relocs();
+    test_zero_init();
+  }
+  freopen("/dev/tty", "w", stdout); //this is so it still gives output without creating a huge file
+  test_compound_with_relocs();
+  test_multi_relocs();
+  test_zero_init();
   return 0;
 }
 

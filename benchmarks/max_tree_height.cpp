@@ -88,6 +88,43 @@ int maxHeight(Node* root) {
 }
 
 int main() {
+    std::srand(42);
+    for(int j = 0; j < 1999; j++) { //change j to change number of iterations
+        Node* root = new Node(1);
+        Node* node1 = new Node(2);
+        Node* node2 = new Node(3);
+        Node* node3 = new Node(4);
+        Node* node4 = new Node(5);
+        Node* node5 = new Node(6);
+        Node* node6 = new Node(7);
+        Node* node7 = new Node(8);
+        Node* node8 = new Node(9);
+        Node* node9 = new Node(10);
+        Node* node10 = new Node(11);
+
+        root->children.push_back(node1);
+        root->children.push_back(node2);
+        root->children.push_back(node3);
+        node1->children.push_back(node4);
+        node1->children.push_back(node5);
+        node2->children.push_back(node6);
+        node3->children.push_back(node7);
+        node3->children.push_back(node8);
+        node6->children.push_back(node9);
+        node6->children.push_back(node10);
+
+        vector<Node*> nodes;
+        nodes.push_back(root);
+        for(int i = 12; i < 9999; i++) { //change i to change number of nodes in graph
+            Node* new_node = new Node(i);
+            nodes.push_back(new_node);
+            int random_index = std::rand() % nodes.size();
+            nodes.at(random_index)->children.push_back(new_node);
+        }
+        
+        cout << maxHeight(root) << endl;        
+    }
+
   
     Node* root = new Node(1);
     Node* node1 = new Node(2);
@@ -111,8 +148,16 @@ int main() {
     node3->children.push_back(node8);
     node6->children.push_back(node9);
     node6->children.push_back(node10);
+
+    vector<Node*> nodes;
+    nodes.push_back(root);
+    for(int i = 12; i < 9999; i++) { //change i to change number of nodes in graph
+        Node* new_node = new Node(i);
+        nodes.push_back(new_node);
+        int random_index = std::rand() % nodes.size();
+        nodes.at(random_index)->children.push_back(new_node);
+    }
     
     cout << maxHeight(root);
-
-    return 0;
+    // return 0;
 }

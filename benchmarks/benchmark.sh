@@ -33,7 +33,10 @@ TESTS=(
 COMPILER="clang++"
 FLAGS="-O3 -Rpass=register-allocation -Rpass-analysis -fno-inline -lm -g"
 REG_ALLOC="-mllvm -regalloc=greedy" #set register allocator
-OUTPUT_FILE="output.txt"
+UNIQUE_ID=$(date +%s.%N)
+DIRECTORY_NAME="greedy_run_ $UNIQUE_ID" # change this to not overwrite results of previous run, or use unique id
+OUTPUT_FILE="$DIRECTORY_NAME/output.txt"
+mkdir "$DIRECTORY_NAME"
 echo "Report:" > "$OUTPUT_FILE" 
 
 
@@ -45,16 +48,19 @@ for SOURCE in "${TESTS[@]}"; do
     elif [[ "$EXT" == "cpp" ]]; then
         COMPILER="clang++"
     fi
-    START_TIME=$(date +%s)
-    $COMPILER $FLAGS $REG_ALLOC "$SOURCE" -o a.out 2> compile.log
-    END_TIME=$(date +%s)
-    COMPILE_TIME=$((END_TIME - START_TIME))
-    SPILL_COUNT=$(grep -i "Type: Spill" compile.log | wc -l)
+    START_TIME=$(date +%s.%N)
+    $COMPILER $FLAGS $REG_ALLOC "$SOURCE" -o "$DIRECTORY_NAME/$SOURCE".out 2> "$DIRECTORY_NAME/$SOURCE"_compile.log
+    END_TIME=$(date +%s.%N)
+    COMPILE_TIME=$(echo "$END_TIME - $START_TIME" | bc)
+    SPILL_COUNT=$(grep -i "Type: Spill" "$DIRECTORY_NAME/$SOURCE"_compile.log | wc -l)
 
     #runtime
-    { time ./a.out; } > runtime.log 2>&1
-    RUNTIME=$(grep real runtime.log | awk '{print $2}' | sed 's/s//')
-    echo "$SOURCE: $SPILL_COUNT spills, Compile time: ${COMPILE_TIME}s, Runtime: ${RUNTIME}s" >> "$OUTPUT_FILE"
+    start_time=$(date +%s.%N)
+    { time ./"$DIRECTORY_NAME/$SOURCE".out; } > "$DIRECTORY_NAME/$SOURCE"_runtime.log 2>&1
+    end_time=$(date +%s.%N)
+    RUN_TIME=$(echo "$end_time - $start_time" | bc)
+    echo "$SOURCE: $SPILL_COUNT spills, Compile time: ${COMPILE_TIME}s, Runtime: ${RUN_TIME}s" >> "$OUTPUT_FILE"
+    clear # removes random terminal output
 done
 
 echo "Run completed. Results saved to $OUTPUT_FILE."

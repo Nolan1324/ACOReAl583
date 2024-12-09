@@ -137,6 +137,23 @@ int findMinSteps(vector<vector<char>> &mat) {
 }
 
 int main() {
+    vector<char> elems = {'.', '*', 'o'};
+    std::srand(42);
+
+    for(int i = 0; i < 3000; i++) { //i controls number of iterations for benchmark runtime
+        vector<vector<char>> ex;
+        for (int j = 0; j < 5; j++) {
+            vector<char> exrow;
+            for (int k = 0; k < 5; k++) {
+                int random_index = std::rand() % 3;
+                exrow.push_back(elems.at(random_index)); 
+            }
+            ex.push_back(exrow);
+        }
+        int res = findMinSteps(ex);
+        cout << res << endl;
+
+    }
 
     vector<vector<char>> mat = {{'.', '.', '.', '.', '.', '.', '.'},
                                 {'.', 'o', '.', '.', '.', '*', '.'},

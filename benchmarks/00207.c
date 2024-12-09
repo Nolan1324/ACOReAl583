@@ -40,6 +40,16 @@ int main()
   f1(2);
   f2();
   f3();
+  FILE *null_file = freopen("/dev/null", "w", stdout); //trash output
+  for(int i = 0; i < 36000; i++) { //change i to change benchmark runtime
+    f1(i);
+    f2();
+    f3();
+  }
+  freopen("/dev/tty", "w", stdout); //this is so it still gives output without creating a huge file
+  f1(26000);
+  f2();
+  f3();
 
   return 0;
 }

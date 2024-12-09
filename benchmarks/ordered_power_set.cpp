@@ -24,7 +24,7 @@ int main()
     int n;
     string s;
     vector<string> str;
-    s = "cab";
+    s = "cabqazwsxedcroqqazwsxqw"; //change s to change runtime of benchmark
     n = s.length();
     int pow_set = pow(2, n);
     func(s, str, n, pow_set);
