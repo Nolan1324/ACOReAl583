@@ -447,6 +447,12 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
   Parameters params(graph.size(), colorOptions[0].size());
   params.allowedColors = colorOptions;
 
+  for(auto virtualReg : virtualRegs) {
+    params.spillCosts.push_back(
+      LIS->getInterval(Register::index2VirtReg(virtualReg)).weight()
+    );
+  }
+
   params.alpha = Alpha;
   params.beta = Beta;
   params.rho = Rho;
