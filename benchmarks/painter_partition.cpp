@@ -48,5 +48,20 @@ int main() {
     int res = minTime(arr, k);
     cout << res << endl;
 
+
+    std::mt19937 gen(42); 
+    std::uniform_int_distribution<int> dist(1, 20);
+    for(int j = 0; j < 1999; j++) { //change j to control benchmark runtime
+        vector<int> arr = {};
+        for(int i = 0; i < j; i++) {
+            arr.push_back(dist(gen));
+        }
+        res = minTime(arr, k);
+        cout << res << endl;
+    }
+    
+
+    
+
     return 0;
 }

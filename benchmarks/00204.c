@@ -523,6 +523,9 @@ void pcs(void)
 int main()
 {
     pcs();
+    for (int i = 0; i < 100000; i++) {
+        pcs();
+    }
     return 0;
 }
 

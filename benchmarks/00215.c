@@ -102,6 +102,14 @@ int main()
     kb_wait_3();
     kb_wait_4();
     printf("end\n");
+    for(int i = 0; i < 9999999; i++) { //change i for benchmark runtime
+        kb_wait_1();
+        kb_wait_2();
+        kb_wait_2_1();
+        kb_wait_2_2();
+        kb_wait_3();
+        kb_wait_4();
+    }
     return 0;
 }
 

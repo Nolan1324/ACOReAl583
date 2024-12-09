@@ -40,14 +40,17 @@ vector<vector<int>> printPascal(int n) {
 int main() {
   
     int n = 5;
-    vector<vector<int>> mat = printPascal(n);
-    for (int i = 0; i < mat.size(); i++) {
-        for (int j = 0; j < mat[i].size(); j++) {
-            std::cout << mat[i][j] << " ";
+    for(int a = 5; a < 425; a++) { //change a to control benchmark runtime
+        vector<vector<int>> mat = printPascal(a);
+        for (int i = 0; i < mat.size(); i++) {
+            for (int j = 0; j < mat[i].size(); j++) {
+                std::cout << mat[i][j] << " ";
+            }
+            std::cout << endl;
         }
-        std::cout << endl;
     }
-    return 0;
+    
+    // return 0;
 }
 
 //source: https://www.geeksforgeeks.org/pascal-triangle/

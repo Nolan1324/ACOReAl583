@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <random>
 using namespace std;
 
 // Function to check if a substring 
@@ -35,9 +36,25 @@ int countPS(string& s) {
     return res;
 }
 
+std::string generateRandomString(std::string str, int length, unsigned int seed = 42) {
+	std::mt19937 generator(seed);
+	std::uniform_int_distribution<char> distribution('a', 'z');
+	std::string randomString;
+    for (int i = 0; i < length; ++i) {
+        randomString += distribution(generator);
+    }
+    return randomString;
+}
+
 int main() {
     string s = "aaa";
     cout << countPS(s);
+
+    for (int i = 0; i < 999999; i++) { //change i to change benchmark length
+		cout << i;
+		generateRandomString(s, 500);
+		cout << countPS(s) << endl;
+	}
     return 0;
 }
 

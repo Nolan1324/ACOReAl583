@@ -278,6 +278,11 @@ int main()
   test_compound_with_relocs();
   test_multi_relocs();
   test_zero_init();
+  for (int i = 0; i < 19999999; i++) { //change i to change benchmark runtime
+    test_compound_with_relocs();
+    test_multi_relocs();
+    test_zero_init();
+  }
   return 0;
 }
 

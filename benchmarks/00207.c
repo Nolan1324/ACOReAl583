@@ -41,6 +41,12 @@ int main()
   f2();
   f3();
 
+  for(int i = 0; i < 26000; i++) { //change i to change benchmark runtime
+    f1(i);
+    f2();
+    f3();
+  }
+
   return 0;
 }
 

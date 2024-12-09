@@ -2,6 +2,7 @@
 // characters become at least d distance away using STL
 #include <bits/stdc++.h>
 #include <iostream>
+#include <random>
 using namespace std;
 typedef pair<char, int> PAIR;
 
@@ -52,7 +53,7 @@ void rearrange(char* str, int d)
 			// cannot be rearranged.
 			if (p + d * k >= n) {
 				cout << "Cannot be rearranged";
-				exit(0);
+				// exit(0);
 			}
 			str[p + d * k] = x;
 		}
@@ -60,12 +61,26 @@ void rearrange(char* str, int d)
 	}
 }
 
+void generateRandomString(char str[], int length, unsigned int seed = 42) {
+	std::mt19937 generator(seed);
+	std::uniform_int_distribution<char> distribution('a', 'z');
+	for (int i = 0; i < length; ++i) {
+		str[i] = distribution(generator);
+	}
+	str[length] = '\0';
+}
+
 // Driver Code
 int main()
 {
-	char str[] = "aabbcc";
+	char str[] = "aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz";
 
-	// Function call
-	rearrange(str, 3);
-	cout << str;
+	for (int i = 0; i < 90000; i++) { //change i to change benchmark length
+		cout << i;
+		generateRandomString(str, 500);
+		rearrange(str, 3);
+		cout << str;
+	}
+	
+	
 }

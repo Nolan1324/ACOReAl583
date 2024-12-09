@@ -41,5 +41,20 @@ int main() {
                                {-4, -1, 1, 7, -6}};
     int res = maxSumRectangle(mat);
     cout << res << endl;
-    return 0;
+    // return 0;
+    std::mt19937 gen(42); 
+    std::uniform_int_distribution<int> dist(-20, 20);
+    vector<vector<int>> test;
+    for(int k = 0; k < 30; k++) { //change k to change benchmark runtime
+        for(int i = 1; i < 10; i++) {
+            vector<int> t;
+            for(int j = 0; j < 10; j++) {
+                t.push_back(dist(gen));
+            }
+            test.push_back(t);
+        }
+        int res1 = maxSumRectangle(test);
+        cout << res1 << endl;
+    }
+
 }

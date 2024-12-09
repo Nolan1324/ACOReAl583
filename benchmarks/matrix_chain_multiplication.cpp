@@ -38,5 +38,16 @@ int main() {
   
     vector<int> arr = {1, 2, 3, 4, 3};
     cout << matrixMultiplication(arr);
+    std::mt19937 gen(42); 
+    std::uniform_int_distribution<int> dist(1, 20);
+    vector<int> arr1 = {};
+    for(int k = 2; k < 22; k++) { //change k to change runtime
+        arr1 = {};
+        for(int i = 0; i < k; i++) {
+            arr1.push_back(dist(gen));
+        }
+        cout << matrixMultiplication(arr1);
+    }
+    
     return 0;
 }

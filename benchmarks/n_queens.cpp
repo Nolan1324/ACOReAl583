@@ -79,16 +79,19 @@ vector<vector<int>> nQueen(int n) {
 
 int main() {
     int n = 4; 
-    
-    vector<vector<int>> result = nQueen(n); 
+    //change i to control how long this benchmark takes
+    for (int i = 4; i < 15; i++) {
+        vector<vector<int>> result = nQueen(i); 
 
-    for(auto &res : result) {
-        cout << "[";
-        for(int i = 0; i < n; ++i) {
-            cout << res[i]; 
-            if(i != n - 1) cout << ", "; 
+        for(auto &res : result) {
+            cout << "[";
+            for(int i = 0; i < n; ++i) {
+                cout << res[i]; 
+                if(i != n - 1) cout << ", "; 
+            }
+            cout << "]\n";
         }
-        cout << "]\n";
+        // return 0;
     }
-    return 0;
+
 }

@@ -11,6 +11,12 @@ largest_cube.cpp:40:3: remark: loop not vectorized: value that could not be iden
       |                 ^
 largest_cube.cpp:40:3: remark: loop not vectorized: Cannot vectorize early exit loop with writes to memory [-Rpass-analysis=loop-vectorize]
 largest_cube.cpp:40:3: remark: loop not vectorized: instruction cannot be vectorized [-Rpass-analysis=loop-vectorize]
+largest_cube.cpp:83:3: remark: loop not vectorized: call instruction cannot be vectorized [-Rpass-analysis=loop-vectorize]
+   83 |                 findLargestCube(i);
+      |                 ^
+largest_cube.cpp:82:2: remark: loop not vectorized: instruction cannot be vectorized [-Rpass-analysis=loop-vectorize]
+   82 |         for(long long int i = 0; i < k; i++) {
+      |         ^
 In file included from largest_cube.cpp:3:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9/bits/stdc++.h:65:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/algorithm:62:
@@ -93,13 +99,13 @@ TAILJMPd64: 1
 note: could not determine the original source location for largest_cube.cpp:0:0
 remark: 9 instructions in function [-Rpass-analysis=asm-printer]
 note: could not determine the original source location for largest_cube.cpp:0:0
-largest_cube.cpp:7:16: remark: Canonicalize natural loops: IR instruction count changed from 700 to 702; Delta: 2 [-Rpass-analysis=size-info]
+largest_cube.cpp:7:16: remark: Canonicalize natural loops: IR instruction count changed from 706 to 708; Delta: 2 [-Rpass-analysis=size-info]
     7 | vector<string> preProcess(long long int n)
       |                ^
 largest_cube.cpp:7:16: remark: Canonicalize natural loops: Function: _Z10preProcessB5cxx11x: IR instruction count changed from 26 to 28; Delta: 2 [-Rpass-analysis=size-info]
-largest_cube.cpp:7:16: remark: CodeGen Prepare: IR instruction count changed from 702 to 701; Delta: -1 [-Rpass-analysis=size-info]
+largest_cube.cpp:7:16: remark: CodeGen Prepare: IR instruction count changed from 708 to 707; Delta: -1 [-Rpass-analysis=size-info]
 largest_cube.cpp:7:16: remark: CodeGen Prepare: Function: _Z10preProcessB5cxx11x: IR instruction count changed from 28 to 27; Delta: -1 [-Rpass-analysis=size-info]
-largest_cube.cpp:7:16: remark: Exception handling preparation: IR instruction count changed from 701 to 703; Delta: 2 [-Rpass-analysis=size-info]
+largest_cube.cpp:7:16: remark: Exception handling preparation: IR instruction count changed from 707 to 709; Delta: 2 [-Rpass-analysis=size-info]
 largest_cube.cpp:7:16: remark: Exception handling preparation: Function: _Z10preProcessB5cxx11x: IR instruction count changed from 27 to 29; Delta: 2 [-Rpass-analysis=size-info]
 largest_cube.cpp:8:1: remark: X86 DAG->DAG Instruction Selection: Function: _Z10preProcessB5cxx11x: MI Instruction count changed from 0 to 81; Delta: 81 [-Rpass-analysis=size-info]
     8 | {
@@ -381,13 +387,13 @@ MOV64rr: 1
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:676:1: remark: 18 instructions in function [-Rpass-analysis=asm-printer]
   676 |       {
       | ^
-largest_cube.cpp:23:8: remark: Canonicalize natural loops: IR instruction count changed from 703 to 706; Delta: 3 [-Rpass-analysis=size-info]
+largest_cube.cpp:23:8: remark: Canonicalize natural loops: IR instruction count changed from 709 to 712; Delta: 3 [-Rpass-analysis=size-info]
    23 | string findLargestCubeUtil(string num, 
       |        ^
 largest_cube.cpp:23:8: remark: Canonicalize natural loops: Function: _Z19findLargestCubeUtilNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS4_SaIS4_EE: IR instruction count changed from 51 to 54; Delta: 3 [-Rpass-analysis=size-info]
-largest_cube.cpp:23:8: remark: CodeGen Prepare: IR instruction count changed from 706 to 703; Delta: -3 [-Rpass-analysis=size-info]
+largest_cube.cpp:23:8: remark: CodeGen Prepare: IR instruction count changed from 712 to 709; Delta: -3 [-Rpass-analysis=size-info]
 largest_cube.cpp:23:8: remark: CodeGen Prepare: Function: _Z19findLargestCubeUtilNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS4_SaIS4_EE: IR instruction count changed from 54 to 51; Delta: -3 [-Rpass-analysis=size-info]
-largest_cube.cpp:23:8: remark: Exception handling preparation: IR instruction count changed from 703 to 705; Delta: 2 [-Rpass-analysis=size-info]
+largest_cube.cpp:23:8: remark: Exception handling preparation: IR instruction count changed from 709 to 711; Delta: 2 [-Rpass-analysis=size-info]
 largest_cube.cpp:23:8: remark: Exception handling preparation: Function: _Z19findLargestCubeUtilNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS4_SaIS4_EE: IR instruction count changed from 51 to 53; Delta: 2 [-Rpass-analysis=size-info]
 largest_cube.cpp:25:1: remark: X86 DAG->DAG Instruction Selection: Function: _Z19findLargestCubeUtilNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS4_SaIS4_EE: MI Instruction count changed from 0 to 160; Delta: 160 [-Rpass-analysis=size-info]
    25 | {
@@ -699,7 +705,7 @@ In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/ios_base.h:41:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/locale_classes.h:40:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/string:55:
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/basic_string.h:529:7: remark: Exception handling preparation: IR instruction count changed from 705 to 707; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/basic_string.h:529:7: remark: Exception handling preparation: IR instruction count changed from 711 to 713; Delta: 2 [-Rpass-analysis=size-info]
   529 |       basic_string(const _CharT* __s, const _Alloc& __a = _Alloc())
       |       ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/basic_string.h:529:7: remark: Exception handling preparation: Function: _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2IS3_EEPKcRKS3_: IR instruction count changed from 13 to 15; Delta: 2 [-Rpass-analysis=size-info]
@@ -817,7 +823,7 @@ RET64: 1
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/ext/new_allocator.h:89:1: remark: 1 instructions in function [-Rpass-analysis=asm-printer]
    89 |       ~new_allocator() _GLIBCXX_USE_NOEXCEPT { }
       | ^
-largest_cube.cpp:58:6: remark: Exception handling preparation: IR instruction count changed from 707 to 709; Delta: 2 [-Rpass-analysis=size-info]
+largest_cube.cpp:58:6: remark: Exception handling preparation: IR instruction count changed from 713 to 715; Delta: 2 [-Rpass-analysis=size-info]
    58 | void findLargestCube(long long int n)
       |      ^
 largest_cube.cpp:58:6: remark: Exception handling preparation: Function: _Z15findLargestCubex: IR instruction count changed from 51 to 53; Delta: 2 [-Rpass-analysis=size-info]
@@ -1011,7 +1017,7 @@ In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/pstl/glue_algorithm_defs.h:13:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/functional:62:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/vector:67:
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:550:7: remark: Exception handling preparation: IR instruction count changed from 709 to 711; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:550:7: remark: Exception handling preparation: IR instruction count changed from 715 to 717; Delta: 2 [-Rpass-analysis=size-info]
   550 |       vector(const vector& __x)
       |       ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:550:7: remark: Exception handling preparation: Function: _ZNSt6vectorINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS5_EEC2ERKS7_: IR instruction count changed from 25 to 27; Delta: 2 [-Rpass-analysis=size-info]
@@ -1087,26 +1093,53 @@ LEA64r: 1
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:553:1: remark: 53 instructions in function [-Rpass-analysis=asm-printer]
   553 |       {
       | ^
-largest_cube.cpp:74:1: remark: X86 DAG->DAG Instruction Selection: Function: main: MI Instruction count changed from 0 to 15; Delta: 15 [-Rpass-analysis=size-info]
+largest_cube.cpp:74:1: remark: X86 DAG->DAG Instruction Selection: Function: main: MI Instruction count changed from 0 to 31; Delta: 31 [-Rpass-analysis=size-info]
    74 | {
       | ^
-largest_cube.cpp:74:1: remark: Peephole Optimizations: Function: main: MI Instruction count changed from 15 to 12; Delta: -3 [-Rpass-analysis=size-info]
-largest_cube.cpp:74:1: remark: Debug Variable Analysis: Function: main: MI Instruction count changed from 12 to 10; Delta: -2 [-Rpass-analysis=size-info]
-largest_cube.cpp:74:1: remark: Virtual Register Rewriter: Function: main: MI Instruction count changed from 10 to 12; Delta: 2 [-Rpass-analysis=size-info]
+largest_cube.cpp:74:1: remark: Peephole Optimizations: Function: main: MI Instruction count changed from 31 to 28; Delta: -3 [-Rpass-analysis=size-info]
+largest_cube.cpp:74:1: remark: Eliminate PHI nodes for register allocation: Function: main: MI Instruction count changed from 28 to 30; Delta: 2 [-Rpass-analysis=size-info]
+largest_cube.cpp:74:1: remark: Two-Address instruction pass: Function: main: MI Instruction count changed from 30 to 31; Delta: 1 [-Rpass-analysis=size-info]
+largest_cube.cpp:74:1: remark: Register Coalescer: Function: main: MI Instruction count changed from 31 to 26; Delta: -5 [-Rpass-analysis=size-info]
+largest_cube.cpp:74:1: remark: Debug Variable Analysis: Function: main: MI Instruction count changed from 26 to 20; Delta: -6 [-Rpass-analysis=size-info]
+largest_cube.cpp:74:1: remark: Virtual Register Rewriter: Function: main: MI Instruction count changed from 20 to 27; Delta: 7 [-Rpass-analysis=size-info]
 largest_cube.cpp:74:1: remark: 8 stack bytes in function 'main' [-Rpass-analysis=prologepilog]
+largest_cube.cpp:74:1: remark: Prologue/Epilogue Insertion & Frame Finalization: Function: main: MI Instruction count changed from 27 to 26; Delta: -1 [-Rpass-analysis=size-info]
+largest_cube.cpp:74:1: remark: Control Flow Optimizer: Function: main: MI Instruction count changed from 26 to 24; Delta: -2 [-Rpass-analysis=size-info]
+largest_cube.cpp:74:1: remark: Live DEBUG_VALUE analysis: Function: main: MI Instruction count changed from 24 to 30; Delta: 6 [-Rpass-analysis=size-info]
 largest_cube.cpp:74:1: remark: 
-Function: main [-Rpass-analysis=stack-frame-layout]
-largest_cube.cpp:73:5: remark: BasicBlock: 
+Function: main
+Offset: [SP-8], Type: Spill, Align: 16, Size: 8 [-Rpass-analysis=stack-frame-layout]
+largest_cube.cpp:77:2: remark: BasicBlock: 
 CALL64pcrel32: 2
 MOV32ri: 2
-POP64r: 1
 PUSH64r: 1
+XOR32rr: 1
+ [-Rpass-analysis=asm-printer]
+   77 |         findLargestCube(n);
+      |         ^
+largest_cube.cpp:73:5: note: could not determine the original source location for largest_cube.cpp:0:0
+   73 | int main()
+      |     ^
+largest_cube.cpp:73:5: remark: BasicBlock: 
+CALL64pcrel32: 1
+CMP64ri32: 1
+INC64r: 1
+JCC_1: 1
+MOV64rr: 1
+ [-Rpass-analysis=asm-printer]
+   73 | int main()
+      |     ^
+largest_cube.cpp:73:5: note: could not determine the original source location for largest_cube.cpp:0:0
+largest_cube.cpp:73:5: note: could not determine the original source location for largest_cube.cpp:0:0
+largest_cube.cpp:73:5: remark: BasicBlock: 
+POP64r: 1
 RET64: 1
 XOR32rr: 1
  [-Rpass-analysis=asm-printer]
    73 | int main()
       |     ^
-largest_cube.cpp:74:1: remark: 8 instructions in function [-Rpass-analysis=asm-printer]
+largest_cube.cpp:73:5: note: could not determine the original source location for largest_cube.cpp:0:0
+largest_cube.cpp:74:1: remark: 14 instructions in function [-Rpass-analysis=asm-printer]
    74 | {
       | ^
 In file included from largest_cube.cpp:3:
@@ -1264,7 +1297,7 @@ In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/locale_classes.h:40:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/string:55:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/basic_string.h:6496:
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/ext/string_conversions.h:99:5: remark: Exception handling preparation: IR instruction count changed from 711 to 713; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/ext/string_conversions.h:99:5: remark: Exception handling preparation: IR instruction count changed from 717 to 719; Delta: 2 [-Rpass-analysis=size-info]
    99 |     __to_xstring(int (*__convf) (_CharT*, std::size_t, const _CharT*,
       |     ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/ext/string_conversions.h:99:5: remark: Exception handling preparation: Function: _ZN9__gnu_cxx12__to_xstringINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEcEET_PFiPT0_mPKS8_P13__va_list_tagEmSB_z: IR instruction count changed from 21 to 23; Delta: 2 [-Rpass-analysis=size-info]
@@ -1364,7 +1397,7 @@ In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/ios_base.h:41:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/locale_classes.h:40:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/string:55:
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/basic_string.h:629:9: remark: Exception handling preparation: IR instruction count changed from 713 to 715; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/basic_string.h:629:9: remark: Exception handling preparation: IR instruction count changed from 719 to 721; Delta: 2 [-Rpass-analysis=size-info]
   629 |         basic_string(_InputIterator __beg, _InputIterator __end,
       |         ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/basic_string.h:629:9: remark: Exception handling preparation: Function: _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC2IPcvEET_S7_RKS3_: IR instruction count changed from 7 to 9; Delta: 2 [-Rpass-analysis=size-info]
@@ -2081,11 +2114,11 @@ TAILJMPd64: 1
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_construct.h:128:1: remark: 1 instructions in function [-Rpass-analysis=asm-printer]
   128 |     {
       | ^
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_construct.h:105:9: remark: Canonicalize natural loops: IR instruction count changed from 715 to 717; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_construct.h:105:9: remark: Canonicalize natural loops: IR instruction count changed from 721 to 723; Delta: 2 [-Rpass-analysis=size-info]
   105 |         __destroy(_ForwardIterator __first, _ForwardIterator __last)
       |         ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_construct.h:105:9: remark: Canonicalize natural loops: Function: _ZNSt12_Destroy_auxILb0EE9__destroyIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEEvT_S9_: IR instruction count changed from 8 to 10; Delta: 2 [-Rpass-analysis=size-info]
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_construct.h:105:9: remark: CodeGen Prepare: IR instruction count changed from 717 to 716; Delta: -1 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_construct.h:105:9: remark: CodeGen Prepare: IR instruction count changed from 723 to 722; Delta: -1 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_construct.h:105:9: remark: CodeGen Prepare: Function: _ZNSt12_Destroy_auxILb0EE9__destroyIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEEvT_S9_: IR instruction count changed from 10 to 9; Delta: -1 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_construct.h:106:1: remark: X86 DAG->DAG Instruction Selection: Function: _ZNSt12_Destroy_auxILb0EE9__destroyIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEEEvT_S9_: MI Instruction count changed from 0 to 19; Delta: 19 [-Rpass-analysis=size-info]
   106 |         {
@@ -2311,11 +2344,11 @@ In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/pstl/glue_algorithm_defs.h:13:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/functional:62:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/vector:72:
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/vector.tcc:427:7: remark: CodeGen Prepare: IR instruction count changed from 716 to 717; Delta: 1 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/vector.tcc:427:7: remark: CodeGen Prepare: IR instruction count changed from 722 to 723; Delta: 1 [-Rpass-analysis=size-info]
   427 |       _M_realloc_insert(iterator __position, _Args&&... __args)
       |       ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/vector.tcc:427:7: remark: CodeGen Prepare: Function: _ZNSt6vectorINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS5_EE17_M_realloc_insertIJRKS5_EEEvN9__gnu_cxx17__normal_iteratorIPS5_S7_EEDpOT_: IR instruction count changed from 55 to 56; Delta: 1 [-Rpass-analysis=size-info]
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/vector.tcc:427:7: remark: Exception handling preparation: IR instruction count changed from 717 to 719; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/vector.tcc:427:7: remark: Exception handling preparation: IR instruction count changed from 723 to 725; Delta: 2 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/vector.tcc:427:7: remark: Exception handling preparation: Function: _ZNSt6vectorINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS5_EE17_M_realloc_insertIJRKS5_EEEvN9__gnu_cxx17__normal_iteratorIPS5_S7_EEDpOT_: IR instruction count changed from 56 to 58; Delta: 2 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/vector.tcc:434:1: remark: X86 DAG->DAG Instruction Selection: Function: _ZNSt6vectorINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS5_EE17_M_realloc_insertIJRKS5_EEEvN9__gnu_cxx17__normal_iteratorIPS5_S7_EEDpOT_: MI Instruction count changed from 0 to 185; Delta: 185 [-Rpass-analysis=size-info]
   434 |     {
@@ -2632,7 +2665,7 @@ In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/pstl/glue_algorithm_defs.h:13:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/functional:62:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/vector:67:
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:340:7: remark: CodeGen Prepare: IR instruction count changed from 719 to 718; Delta: -1 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:340:7: remark: CodeGen Prepare: IR instruction count changed from 725 to 724; Delta: -1 [-Rpass-analysis=size-info]
   340 |       _M_allocate(size_t __n)
       |       ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:340:7: remark: CodeGen Prepare: Function: _ZNSt12_Vector_baseINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS5_EE11_M_allocateEm: IR instruction count changed from 6 to 5; Delta: -1 [-Rpass-analysis=size-info]
@@ -3112,13 +3145,13 @@ TAILJMPd64: 1
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:963:1: remark: 25 instructions in function [-Rpass-analysis=asm-printer]
   963 |     {
       | ^
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:936:5: remark: Canonicalize natural loops: IR instruction count changed from 718 to 720; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:936:5: remark: Canonicalize natural loops: IR instruction count changed from 724 to 726; Delta: 2 [-Rpass-analysis=size-info]
   936 |     __relocate_a_1(_InputIterator __first, _InputIterator __last,
       |     ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:936:5: remark: Canonicalize natural loops: Function: _ZSt14__relocate_a_1IPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES6_SaIS5_EET0_T_S9_S8_RT1_: IR instruction count changed from 11 to 13; Delta: 2 [-Rpass-analysis=size-info]
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:936:5: remark: Loop Strength Reduction: IR instruction count changed from 720 to 721; Delta: 1 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:936:5: remark: Loop Strength Reduction: IR instruction count changed from 726 to 727; Delta: 1 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:936:5: remark: Loop Strength Reduction: Function: _ZSt14__relocate_a_1IPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES6_SaIS5_EET0_T_S9_S8_RT1_: IR instruction count changed from 13 to 14; Delta: 1 [-Rpass-analysis=size-info]
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:936:5: remark: CodeGen Prepare: IR instruction count changed from 721 to 719; Delta: -2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:936:5: remark: CodeGen Prepare: IR instruction count changed from 727 to 725; Delta: -2 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:936:5: remark: CodeGen Prepare: Function: _ZSt14__relocate_a_1IPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES6_SaIS5_EET0_T_S9_S8_RT1_: IR instruction count changed from 13 to 12; Delta: -1 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:941:1: remark: X86 DAG->DAG Instruction Selection: Function: _ZSt14__relocate_a_1IPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES6_SaIS5_EET0_T_S9_S8_RT1_: MI Instruction count changed from 0 to 32; Delta: 32 [-Rpass-analysis=size-info]
   941 |     {
@@ -3357,11 +3390,11 @@ RET64: 1
 In file included from largest_cube.cpp:3:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/x86_64-linux-gnu/c++/9/bits/stdc++.h:65:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/algorithm:62:
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_algo.h:1158:5: remark: Canonicalize natural loops: IR instruction count changed from 719 to 721; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_algo.h:1158:5: remark: Canonicalize natural loops: IR instruction count changed from 725 to 727; Delta: 2 [-Rpass-analysis=size-info]
  1158 |     __reverse(_RandomAccessIterator __first, _RandomAccessIterator __last,
       |     ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_algo.h:1158:5: remark: Canonicalize natural loops: Function: _ZSt9__reverseIN9__gnu_cxx17__normal_iteratorIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS7_SaIS7_EEEEEvT_SD_St26random_access_iterator_tag: IR instruction count changed from 17 to 19; Delta: 2 [-Rpass-analysis=size-info]
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_algo.h:1158:5: remark: CodeGen Prepare: IR instruction count changed from 721 to 720; Delta: -1 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_algo.h:1158:5: remark: CodeGen Prepare: IR instruction count changed from 727 to 726; Delta: -1 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_algo.h:1158:5: remark: CodeGen Prepare: Function: _ZSt9__reverseIN9__gnu_cxx17__normal_iteratorIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS7_SaIS7_EEEEEvT_SD_St26random_access_iterator_tag: IR instruction count changed from 19 to 18; Delta: -1 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_algo.h:1160:1: remark: X86 DAG->DAG Instruction Selection: Function: _ZSt9__reverseIN9__gnu_cxx17__normal_iteratorIPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS7_SaIS7_EEEEEvT_SD_St26random_access_iterator_tag: MI Instruction count changed from 0 to 60; Delta: 60 [-Rpass-analysis=size-info]
  1160 |     {
@@ -3694,7 +3727,7 @@ In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/pstl/glue_algorithm_defs.h:13:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/functional:62:
 In file included from /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/vector:67:
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:300:7: remark: Exception handling preparation: IR instruction count changed from 720 to 722; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:300:7: remark: Exception handling preparation: IR instruction count changed from 726 to 728; Delta: 2 [-Rpass-analysis=size-info]
   300 |       _Vector_base(size_t __n, const allocator_type& __a)
       |       ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_vector.h:300:7: remark: Exception handling preparation: Function: _ZNSt12_Vector_baseINSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESaIS5_EEC2EmRKS6_: IR instruction count changed from 6 to 8; Delta: 2 [-Rpass-analysis=size-info]
@@ -4061,15 +4094,15 @@ TAILJMPd64: 1
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:117:1: remark: 1 instructions in function [-Rpass-analysis=asm-printer]
   117 |     {
       | ^
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: Canonicalize natural loops: IR instruction count changed from 722 to 724; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: Canonicalize natural loops: IR instruction count changed from 728 to 730; Delta: 2 [-Rpass-analysis=size-info]
    76 |         __uninit_copy(_InputIterator __first, _InputIterator __last,
       |         ^
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: Canonicalize natural loops: Function: _ZNSt20__uninitialized_copyILb0EE13__uninit_copyIN9__gnu_cxx17__normal_iteratorIPKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS9_SaIS9_EEEEPS9_EET0_T_SI_SH_: IR instruction count changed from 28 to 30; Delta: 2 [-Rpass-analysis=size-info]
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: Loop Strength Reduction: IR instruction count changed from 724 to 725; Delta: 1 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: Loop Strength Reduction: IR instruction count changed from 730 to 731; Delta: 1 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: Loop Strength Reduction: Function: _ZNSt20__uninitialized_copyILb0EE13__uninit_copyIN9__gnu_cxx17__normal_iteratorIPKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS9_SaIS9_EEEEPS9_EET0_T_SI_SH_: IR instruction count changed from 30 to 31; Delta: 1 [-Rpass-analysis=size-info]
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: CodeGen Prepare: IR instruction count changed from 725 to 723; Delta: -2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: CodeGen Prepare: IR instruction count changed from 731 to 729; Delta: -2 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: CodeGen Prepare: Function: _ZNSt20__uninitialized_copyILb0EE13__uninit_copyIN9__gnu_cxx17__normal_iteratorIPKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS9_SaIS9_EEEEPS9_EET0_T_SI_SH_: IR instruction count changed from 30 to 29; Delta: -1 [-Rpass-analysis=size-info]
-/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: Exception handling preparation: IR instruction count changed from 723 to 725; Delta: 2 [-Rpass-analysis=size-info]
+/usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: Exception handling preparation: IR instruction count changed from 729 to 731; Delta: 2 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:76:9: remark: Exception handling preparation: Function: _ZNSt20__uninitialized_copyILb0EE13__uninit_copyIN9__gnu_cxx17__normal_iteratorIPKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS9_SaIS9_EEEEPS9_EET0_T_SI_SH_: IR instruction count changed from 29 to 31; Delta: 2 [-Rpass-analysis=size-info]
 /usr/lib/gcc/x86_64-linux-gnu/9/../../../../include/c++/9/bits/stl_uninitialized.h:78:1: remark: X86 DAG->DAG Instruction Selection: Function: _ZNSt20__uninitialized_copyILb0EE13__uninit_copyIN9__gnu_cxx17__normal_iteratorIPKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEESt6vectorIS9_SaIS9_EEEEPS9_EET0_T_SI_SH_: MI Instruction count changed from 0 to 99; Delta: 99 [-Rpass-analysis=size-info]
    78 |         {

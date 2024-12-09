@@ -78,6 +78,10 @@ int main()
 
 	n = 876;
 	findLargestCube(n);
+	long long int k = 923400; //change k to change benchmark length
+	for(long long int i = 0; i < k; i++) {
+		findLargestCube(i);
+	}
 
 	return 0;
 }

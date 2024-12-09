@@ -45,16 +45,18 @@ for SOURCE in "${TESTS[@]}"; do
     elif [[ "$EXT" == "cpp" ]]; then
         COMPILER="clang++"
     fi
-    START_TIME=$(date +%s)
+    START_TIME=$(date +%s.%N)
     $COMPILER $FLAGS $REG_ALLOC "$SOURCE" -o a.out 2> compile.log
-    END_TIME=$(date +%s)
-    COMPILE_TIME=$((END_TIME - START_TIME))
+    END_TIME=$(date +%s.%N)
+    COMPILE_TIME=$(echo "$END_TIME - $START_TIME" | bc)
     SPILL_COUNT=$(grep -i "Type: Spill" compile.log | wc -l)
 
     #runtime
+    start_time=$(date +%s.%N)
     { time ./a.out; } > runtime.log 2>&1
-    RUNTIME=$(grep real runtime.log | awk '{print $2}' | sed 's/s//')
-    echo "$SOURCE: $SPILL_COUNT spills, Compile time: ${COMPILE_TIME}s, Runtime: ${RUNTIME}s" >> "$OUTPUT_FILE"
+    end_time=$(date +%s.%N)
+    RUN_TIME=$(echo "$end_time - $start_time" | bc)
+    echo "$SOURCE: $SPILL_COUNT spills, Compile time: ${COMPILE_TIME}s, Runtime: ${RUN_TIME}s" >> "$OUTPUT_FILE"
 done
 
 echo "Run completed. Results saved to $OUTPUT_FILE."
