@@ -607,7 +607,7 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   SpillerInstance.reset(createInlineSpiller(*this, *MF, *VRM, VRAI));
 
   // ACO Register Allocation
-  bool spillsOccurred{false};
+  bool spillsOccurred{true};
 
   do {
     std::vector<unsigned int> virtualRegs = makeVirtualRegsList();
@@ -628,6 +628,7 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
 
     if(handleForcedSpills(options, virtualRegs)) {
       Matrix->invalidateVirtRegs();
+      spillsOccurred = true;
       continue;
     }
     
