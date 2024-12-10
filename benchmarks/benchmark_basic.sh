@@ -32,9 +32,9 @@ TESTS=(
 #setup
 COMPILER="clang++"
 FLAGS="-O3 -Rpass=register-allocation -Rpass-analysis -fno-inline -lm -g"
-REG_ALLOC="-mllvm -regalloc=greedy" #set register allocator
+REG_ALLOC="-mllvm -regalloc=basic" #set register allocator
 UNIQUE_ID=$(date +%s.%N)
-DIRECTORY_NAME="greedy_run_ $UNIQUE_ID" # change this to not overwrite results of previous run, or use unique id
+DIRECTORY_NAME="basic_run_$UNIQUE_ID" # change this to not overwrite results of previous run, or use unique id
 OUTPUT_FILE="$DIRECTORY_NAME/output.txt"
 mkdir "$DIRECTORY_NAME"
 echo "Report:" > "$OUTPUT_FILE" 
@@ -52,7 +52,7 @@ for SOURCE in "${TESTS[@]}"; do
     $COMPILER $FLAGS $REG_ALLOC "$SOURCE" -o "$DIRECTORY_NAME/$SOURCE".out 2> "$DIRECTORY_NAME/$SOURCE"_compile.log
     END_TIME=$(date +%s.%N)
     COMPILE_TIME=$(echo "$END_TIME - $START_TIME" | bc)
-    SPILL_COUNT=$(grep -i "Type: Spill" "$DIRECTORY_NAME/$SOURCE"_compile.log | wc -l)
+    SPILL_COUNT=$(grep -i "spilling:" "$DIRECTORY_NAME/$SOURCE"_compile.log | wc -l)
 
     #runtime
     start_time=$(date +%s.%N)

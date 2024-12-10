@@ -219,8 +219,8 @@ bool RABasic::spillInterferences(const LiveInterval &VirtReg,
       Intfs.push_back(Intf);
     }
   }
-  errs() << "spilling " << printReg(PhysReg, TRI) << " interferences with "
-         << VirtReg << "\n";
+// errs() << "spilling " << printReg(PhysReg, TRI) << " interferences with "
+//         << VirtReg << "\n";
   assert(!Intfs.empty() && "expected interference");
 
   // Spill each interfering vreg allocated to PhysReg or an alias.

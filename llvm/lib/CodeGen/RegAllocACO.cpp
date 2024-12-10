@@ -439,6 +439,7 @@ bool RAAco::handleForcedSpills(ColorOptions &options, const std::vector<unsigned
     auto vr = Register::index2VirtReg(virtualRegs[i]);
     LiveRangeEdit LRE(&LIS->getInterval(vr), SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
     spiller().spill(LRE);
+    return true;
   }
 
   return !mustSpill.empty();
