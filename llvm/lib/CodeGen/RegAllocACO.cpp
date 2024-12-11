@@ -316,6 +316,7 @@ MCPhysReg RAAco::getPhyRegFromColor(const ColorMappings &mappings, int color,
       return reg;
     }
   }
+  llvm_unreachable("Every color should have some register");
 }
 
 bool RAAco::handleForcedSpills(ColorOptions &options, const std::vector<unsigned int> &virtualRegs) {

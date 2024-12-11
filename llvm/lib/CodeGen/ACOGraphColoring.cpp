@@ -77,12 +77,12 @@ inline static float assignmentWeight(int vertex, int color, Parameters& params, 
 }
 
 static int bestColor(int vertex, Parameters& params, vector<vector<int>>& neighborsByColor, vector<vector<float>>& pheromoneTrails, mt19937& gen) {
-    float weights[params.numColors];
+    std::vector<float> weights(params.numColors, 0.0);
     for (int color = 0; color < params.numColors; ++color) {
         weights[color] = assignmentWeight(vertex, color, params, neighborsByColor, pheromoneTrails);
     }
 
-    discrete_distribution<> dist(weights, weights + params.numColors);
+    discrete_distribution<> dist(weights.begin(), weights.end());
     return dist(gen);
 }
 
@@ -158,6 +158,7 @@ static void updateSolution(Solution& solution, const Graph& graph, const Paramet
     tabuTenure[vertex][newColor] = newTenure;
 }
 
+#if false
 // Unused other tenure update step
 static void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& totalConflicts,
                       int& maxSolutionValue, int& minSolutionValue, const Parameters& params) {
@@ -210,6 +211,7 @@ static void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& tot
         }
     }
 }
+#endif
 
 static void dynamicTenureUpdate(int& tabuTenureLength, int numVertexConflicts) {
     static std::mt19937 generator{std::random_device{}()};

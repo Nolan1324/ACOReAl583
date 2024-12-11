@@ -41,9 +41,10 @@ struct Parameters {
 
     // Constructor with required numVertices and numColors
     Parameters(int numVertices, int numColors)
-        : numVertices(numVertices), numColors(numColors),
-          allowedColors(numVertices, std::vector<bool>(numColors, true)),
-          spillCosts(numVertices, 1.0) {}
+        : allowedColors(numVertices, std::vector<bool>(numColors, true)),
+          spillCosts(numVertices, 1.0),
+          numVertices(numVertices), numColors(numColors)
+          {}
 };
 
 void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params);
