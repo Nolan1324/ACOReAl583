@@ -1,5 +1,9 @@
 # ACOReAl
 
+ACOReAl is a register allocator implemented in LLVM that uses ant colony optimization for register coloring. The allocator pass is built on top of the main LLVM repository. See the [pull request](https://github.com/Nolan1324/ACOReAl583/pull/3/files) for a list of the exact changes made to implement ACOReAl.
+
+## Building and running
+
 Build with:
 
 ```bash
@@ -7,12 +11,6 @@ $ mkdir build && cd build
 $ cmake -DLLVM_ENABLE_PROJECTS="clang;compiler-rt" -DCMAKE_BUILD_TYPE=Release -DLLVM_USE_LINKER=lld -S llvm -G "Unix Makefiles" ../llvm 
 $ make install -j$(nproc)
 $ make install -j$(sysctl -n hw.physicalcpu)  # mac alternative
-```
-
-Or you can utilize some make commands!
-```bash
-make build  # to build
-make run-aco  # run aco (or use "basic" or "greedy" or other pass)
 ```
 
 ### Building only LLC in debug mode
