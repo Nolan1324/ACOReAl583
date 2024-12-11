@@ -77,9 +77,22 @@ class LLVM_LIBRARY_VISIBILITY RAAco : public MachineFunctionPass,
   };
 
 
-
   bool LRE_CanEraseVirtReg(Register) override;
   void LRE_WillShrinkVirtReg(Register) override;
+
+   /* ACO */
+  std::vector<unsigned int> makeVirtualRegsList();
+  Graph makeGraph(const std::vector<unsigned int> &virtualRegs);
+  int getNumberOfColors(const ColorMappings &mappings);
+  ColorOptions makeColorOptions(const std::vector<unsigned int> &virtualRegs, const ColorMappings &mappings);
+  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions, 
+    RAAco::ColorMappings &colorMappings, const std::vector<unsigned int> &virtualRegs);
+  // Returns true if a register was spilled, false otherwise
+  bool allocateACOColors(const ACOColoringResult &coloring);
+  MCPhysReg getColorFromPhyReg(const ColorMappings &mappings, MCPhysReg physReg);
+  ColorMappings createColorMappings(const std::vector<unsigned int> &virtualRegs);
+  MCPhysReg getPhyRegFromColor(const ColorMappings &mappings, int color, const TargetRegisterClass *rc);
+  bool handleForcedSpills(ColorOptions &options, const std::vector<unsigned int> &virtualRegs);
 
 public:
   RAAco(const RegAllocFilterFunc F = nullptr);
@@ -94,18 +107,12 @@ public:
 
   Spiller &spiller() override { return *SpillerInstance; }
 
-  void enqueueImpl(const LiveInterval *LI) override { Queue.push(LI); }
+  void enqueueImpl(const LiveInterval *LI) override { llvm_unreachable("not implemented"); }
 
-  const LiveInterval *dequeue() override {
-    if (Queue.empty())
-      return nullptr;
-    const LiveInterval *LI = Queue.top();
-    Queue.pop();
-    return LI;
-  }
+  const LiveInterval *dequeue() override { llvm_unreachable("not implemented"); }
 
   MCRegister selectOrSplit(const LiveInterval &VirtReg,
-                           SmallVectorImpl<Register> &SplitVRegs) override;
+                           SmallVectorImpl<Register> &SplitVRegs) override { llvm_unreachable("not implemented"); }
 
   /// Perform register allocation.
   bool runOnMachineFunction(MachineFunction &mf) override;
@@ -120,26 +127,8 @@ public:
         MachineFunctionProperties::Property::IsSSA);
   }
 
-  // Helper for spilling all live virtual registers currently unified under preg
-  // that interfere with the most recently queried lvr.  Return true if spilling
-  // was successful, and append any new spilled/split intervals to splitLVRs.
   bool spillInterferences(const LiveInterval &VirtReg, MCRegister PhysReg,
-                          SmallVectorImpl<Register> &SplitVRegs);
-
-  /* ACO */
-  std::vector<unsigned int> makeVirtualRegsList();
-  Graph makeGraph(const std::vector<unsigned int> &virtualRegs);
-  int getNumberOfColors(const ColorMappings &mappings);
-  ColorOptions makeColorOptions(const std::vector<unsigned int> &virtualRegs, const ColorMappings &mappings);
-  ACOColoringResult doACOColoring(Graph &graph, ColorOptions &colorOptions, 
-    RAAco::ColorMappings &colorMappings, const std::vector<unsigned int> &virtualRegs);
-  // Returns true if a register was spilled, false otherwise
-  bool allocateACOColors(const ACOColoringResult &coloring);
-  bool isValidPhysReg(MCRegister physReg, LiveInterval *virtReg);
-  MCPhysReg getColorFromPhyReg(const ColorMappings &mappings, MCPhysReg physReg);
-  ColorMappings createColorMappings(const std::vector<unsigned int> &virtualRegs);
-  MCPhysReg getPhyRegFromColor(const ColorMappings &mappings, int color, const TargetRegisterClass *rc);
-  bool handleForcedSpills(ColorOptions &options, const std::vector<unsigned int> &virtualRegs);
+                          SmallVectorImpl<Register> &SplitVRegs) { llvm_unreachable("not implemented"); }
 
   static char ID;
 };

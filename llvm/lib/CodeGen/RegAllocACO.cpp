@@ -177,107 +177,6 @@ void RAAco::getAnalysisUsage(AnalysisUsage &AU) const {
 
 void RAAco::releaseMemory() { SpillerInstance.reset(); }
 
-// Spill or split all live virtual registers currently unified under PhysReg
-// that interfere with VirtReg. The newly spilled or split live intervals are
-// returned by appending them to SplitVRegs.
-bool RAAco::spillInterferences(const LiveInterval &VirtReg, MCRegister PhysReg,
-                               SmallVectorImpl<Register> &SplitVRegs) {
-  // Record each interference and determine if all are spillable before mutating
-  // either the union or live intervals.
-  SmallVector<const LiveInterval *, 8> Intfs;
-
-  // Collect interferences assigned to any alias of the physical register.
-  for (MCRegUnit Unit : TRI->regunits(PhysReg)) {
-    LiveIntervalUnion::Query &Q = Matrix->query(VirtReg, Unit);
-    for (const auto *Intf : reverse(Q.interferingVRegs())) {
-      if (!Intf->isSpillable() || Intf->weight() > VirtReg.weight())
-        return false;
-      Intfs.push_back(Intf);
-    }
-  }
-  LLVM_DEBUG(dbgs() << "spilling " << printReg(PhysReg, TRI)
-                    << " interferences with " << VirtReg << "\n");
-  assert(!Intfs.empty() && "expected interference");
-
-  // Spill each interfering vreg allocated to PhysReg or an alias.
-  for (const LiveInterval *Spill : Intfs) {
-    // Skip duplicates.
-    if (!VRM->hasPhys(Spill->reg()))
-      continue;
-
-    // Deallocate the interfering vreg by removing it from the union.
-    // A LiveInterval instance may not be in a union during modification!
-    Matrix->unassign(*Spill);
-
-    // Spill the extracted interval.
-    LiveRangeEdit LRE(Spill, SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
-    spiller().spill(LRE);
-  }
-  return true;
-}
-
-// Driver for the register assignment and splitting heuristics.
-// Manages iteration over the LiveIntervalUnions.
-//
-// This is a minimal implementation of register assignment and splitting that
-// spills whenever we run out of registers.
-//
-// selectOrSplit can only be called once per live virtual register. We then do a
-// single interference test for each register the correct class until we find an
-// available register. So, the number of interference tests in the worst case is
-// |vregs| * |machineregs|. And since the number of interference tests is
-// minimal, there is no value in caching them outside the scope of
-// selectOrSplit().
-MCRegister RAAco::selectOrSplit(const LiveInterval &VirtReg,
-                                SmallVectorImpl<Register> &SplitVRegs) {
-  // Populate a list of physical register spill candidates.
-  SmallVector<MCRegister, 8> PhysRegSpillCands;
-
-  // Check for an available register in this class.
-  auto Order =
-      AllocationOrder::create(VirtReg.reg(), *VRM, RegClassInfo, Matrix);
-  for (MCRegister PhysReg : Order) {
-    assert(PhysReg.isValid());
-    // Check for interference in PhysReg
-    switch (Matrix->checkInterference(VirtReg, PhysReg)) {
-    case LiveRegMatrix::IK_Free:
-      // PhysReg is available, allocate it.
-      return PhysReg;
-
-    case LiveRegMatrix::IK_VirtReg:
-      // Only virtual registers in the way, we may be able to spill them.
-      PhysRegSpillCands.push_back(PhysReg);
-      continue;
-
-    default:
-      // RegMask or RegUnit interference.
-      continue;
-    }
-  }
-
-  // Try to spill another interfering reg with less spill weight.
-  for (MCRegister &PhysReg : PhysRegSpillCands) {
-    if (!spillInterferences(VirtReg, PhysReg, SplitVRegs))
-      continue;
-
-    assert(!Matrix->checkInterference(VirtReg, PhysReg) &&
-           "Interference after spill.");
-    // Tell the caller to allocate to this newly freed physical register.
-    return PhysReg;
-  }
-
-  // No other spill candidates we re found, so spill the current VirtReg.
-  LLVM_DEBUG(dbgs() << "spilling: " << VirtReg << '\n');
-  if (!VirtReg.isSpillable())
-    return ~0u;
-  LiveRangeEdit LRE(&VirtReg, SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
-  spiller().spill(LRE);
-
-  // The live virtual register requesting allocation was spilled, so tell
-  // the caller not to allocate anything during this round.
-  return 0;
-}
-
 std::vector<unsigned int> RAAco::makeVirtualRegsList() {
   unsigned int numTotalVirtRegs = MRI->getNumVirtRegs();
   std::vector<unsigned int> virtualRegs;
@@ -294,9 +193,9 @@ std::vector<unsigned int> RAAco::makeVirtualRegsList() {
 Graph RAAco::makeGraph(const std::vector<unsigned int> &virtualRegs) {
   Graph graph = makeEmptyGraph(virtualRegs.size());
 
-  for (int i = 0; i < virtualRegs.size(); ++i) {
+  for (size_t i = 0; i < virtualRegs.size(); ++i) {
     Register Reg1 = Register::index2VirtReg(virtualRegs[i]);
-    for (int j = 0; j < virtualRegs.size(); ++j) {
+    for (size_t j = 0; j < virtualRegs.size(); ++j) {
       if (i == j) {
         continue;
       }
@@ -385,12 +284,8 @@ ColorOptions RAAco::makeColorOptions(const std::vector<unsigned int> &virtualReg
   ColorOptions colorOptions(virtualRegs.size(),
                             std::vector<bool>(getNumberOfColors(colorMappings), false));
 
-  for (int i = 0; i < virtualRegs.size(); ++i) {
+  for (size_t i = 0; i < virtualRegs.size(); ++i) {
     Register vr = Register::index2VirtReg(virtualRegs[i]);
-    // if (MRI->reg_nodbg_empty(vr) || !LIS->hasInterval(vr)) {
-    //   colorOptions[i][0] = true;
-    //   continue;
-    // }
     const TargetRegisterClass *rc = MRI->getRegClass(vr);
     ArrayRef<MCPhysReg> allocOrder = RegClassInfo.getOrder(rc);
     for (auto reg : allocOrder) {
@@ -425,7 +320,7 @@ MCPhysReg RAAco::getPhyRegFromColor(const ColorMappings &mappings, int color,
 
 bool RAAco::handleForcedSpills(ColorOptions &options, const std::vector<unsigned int> &virtualRegs) {
   std::vector<unsigned int> mustSpill;
-  for (int i = 0; i < virtualRegs.size(); ++i) {
+  for (size_t i = 0; i < virtualRegs.size(); ++i) {
     auto &options_row = options[i];
     if (std::all_of(options_row.begin(), options_row.end(),
                     [](int x) { return x == 0; })) {
@@ -518,25 +413,6 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
   }
 
   return coloring;
-}
-
-bool RAAco::isValidPhysReg(MCRegister physReg, LiveInterval *virtReg) {
-  const TargetRegisterClass *rc = MRI->getRegClass(virtReg->reg());
-  ArrayRef<MCPhysReg> allocOrder = RegClassInfo.getOrder(rc);
-
-  //  LLVM_DEBUG(dbgs() << "Enumerating valid physical regs for VR " <<
-  //  Register::virtReg2Index(virtReg->reg()) << ": ");
-
-  for (auto reg : allocOrder) {
-    //    LLVM_DEBUG(dbgs() << reg << ", ");
-    if (reg == physReg) {
-      //      LLVM_DEBUG(dbgs() << "<-- Found!\n");
-      return true;
-    }
-  }
-
-  //  LLVM_DEBUG(dbgs() << "; Not Found!\n");
-  return false;
 }
 
 bool RAAco::allocateACOColors(const ACOColoringResult &coloring) {
