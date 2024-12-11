@@ -1,14 +1,64 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <chrono>
 #include <limits>
+#include <chrono>
 #include "math.h"
 #include <random>
 
 #include "ACOGraphColoring.h"
 
 using namespace std;
+
+std::chrono::high_resolution_clock::time_point start_time;
+std::chrono::high_resolution_clock::time_point previous_end_time;
+
+float cumulative_percentage = 0.0;
+int call_count = 0;
+int print_frequency = 5000;  // Print the average every 10 calls
+
+void profileStart() {
+    start_time = std::chrono::high_resolution_clock::now();
+}
+
+void profileStop() {
+    auto end_time = std::chrono::high_resolution_clock::now();
+
+    // Use nanoseconds for higher precision
+    auto active_duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time);
+
+    if (previous_end_time.time_since_epoch().count() == 0) {
+        previous_end_time = end_time;
+        return;  // No interval to calculate for the first call
+    }
+
+    // Use nanoseconds for total interval calculation as well
+    auto total_interval = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - previous_end_time);
+    previous_end_time = end_time;
+
+    float active_time_ns = active_duration.count();  // Nanoseconds as a raw value
+    float total_time_ns = total_interval.count();    // Nanoseconds as a raw value
+
+    if (total_time_ns == 0) {
+        std::cout << "Total time is too small, skipping calculation..." << std::endl;
+        return;
+    }
+
+    // Calculate the percentage
+    float percentage = (active_time_ns / total_time_ns) * 100.0;
+
+    // Accumulate percentages and count calls
+    cumulative_percentage += percentage;
+    ++call_count;
+
+    // Print the average every `print_frequency` calls
+    if (call_count % print_frequency == 0) {
+        float average_percentage = cumulative_percentage / print_frequency;
+        std::cout << "Average active time percentage (last " << print_frequency
+                  << " calls): " << average_percentage << "%" << std::endl;
+        cumulative_percentage = 0.0;  // Reset cumulative percentage
+    }
+}
 
 class LocalStep {
 public:
@@ -35,7 +85,7 @@ static void updatePheromones(const Graph& graph, vector<vector<float>>& pheromon
     }
 
     for (int u = 0; u < params.numVertices; ++u) {
-        for (int v = 0; v < params.numVertices; ++v) {
+        for (int v = 0; v < params.numVertices; ++v) { // TODO: investigate start at v=u?
             // pheromone decay
             pheromones[u][v] *= params.rho;
             
@@ -44,6 +94,7 @@ static void updatePheromones(const Graph& graph, vector<vector<float>>& pheromon
                 continue;
             }
             if (updatingSolution.vertexColors[u] == updatingSolution.vertexColors[v]) {
+                // paper defines this in equation 5 as using conflicting edges. The repo seems to use conflicting vertices though
                 pheromones[u][v] += (updatingSolution.conflictingEdges == 0) ? 1 : 1.0 / updatingSolution.conflictingEdges;
             }
         }
@@ -54,6 +105,7 @@ static int optimizationFunction(const Solution& solution) {
     return solution.conflictingEdges;
 }
 
+// if this is a bottleneck can redo saturation storing
 static int saturation(const vector<int>& neighborsByColor) {
     int saturationVal = 0;
     for (size_t i = 0; i < neighborsByColor.size(); ++i) {
@@ -71,6 +123,7 @@ inline float fastPow(float a, float b) {
 
 inline static float assignmentWeight(int vertex, int color, Parameters& params, vector<vector<int>>& neighborsByColor, vector<vector<float>>& pheromoneTrails) {
     // pheromoneTrail * heuristic * isAllowed
+    // For heuristic, paper doesn't add 1 to denominator, repo does. Without adding one, gets /0 error
     return fastPow(pheromoneTrails[vertex][color], params.alpha)
          * fastPow(neighborsByColor[vertex][color] + 1, -params.beta)
          * params.allowedColors[vertex][color];
@@ -87,7 +140,7 @@ static int bestColor(int vertex, Parameters& params, vector<vector<int>>& neighb
 }
 
 static void antFixedK(Solution& solution, const Graph& graph, Parameters& params, const vector<vector<float>>& pheromones) {
-    vector<vector<int>> neighborsByColor(params.numVertices, vector<int>(params.numColors, 0));
+    vector<vector<int>> neighborsByColor(params.numVertices, vector<int>(params.numColors, 0)); // store saturation directly here later (n+1)
     vector<int> numWithColor(params.numColors, 0);
     vector<vector<float>> pheramoneTrails(params.numVertices, vector<float>(params.numColors, 1.0));
 
@@ -158,7 +211,6 @@ static void updateSolution(Solution& solution, const Graph& graph, const Paramet
     tabuTenure[vertex][newColor] = newTenure;
 }
 
-// Unused other tenure update step
 static void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& totalConflicts,
                       int& maxSolutionValue, int& minSolutionValue, const Parameters& params) {
     // Predefined parameter pairs: {frequency, increment, nextPair}
@@ -176,16 +228,19 @@ static void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& tot
 
     int maxMin = 0;
 
+    // Update max and min solution values
     maxSolutionValue = std::max(maxSolutionValue, totalConflicts);
     minSolutionValue = std::min(minSolutionValue, totalConflicts);
 
     maxMin = maxSolutionValue - minSolutionValue;
 
     if (iteration % frequency == 0) {
+        // Adjust tabu tenure
         if (maxMin < (4 + totalConflicts / 80) || tabuTenureLength == 0) {
             tabuTenureLength += increment;
 
             if (pairCycles == nextPair) {
+                // Select a new parameter pair
                 int randomIndex = rand() % numPairs;
                 frequency = pairs[randomIndex][0];
                 increment = pairs[randomIndex][1];
@@ -196,10 +251,12 @@ static void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& tot
             tabuTenureLength--;
         }
 
+        // Reset solution value tracking
         minSolutionValue = params.numVertices * params.numVertices;
         maxSolutionValue = 0;
 
         if (pairCycles == nextPair) {
+            // Select a new parameter pair
             int randomIndex = rand() % numPairs;
             frequency = pairs[randomIndex][0];
             increment = pairs[randomIndex][1];
@@ -212,9 +269,11 @@ static void reactiveTenureUpdate(int& tabuTenureLength, int& iteration, int& tot
 }
 
 static void dynamicTenureUpdate(int& tabuTenureLength, int numVertexConflicts) {
-    static std::mt19937 generator{std::random_device{}()};
-    std::uniform_int_distribution<int> distribution(0, 9);
+    // Create a random number generator
+    static std::mt19937 generator{std::random_device{}()}; // Seed the generator
+    std::uniform_int_distribution<int> distribution(0, 9); // Generate numbers in the range [0, 9]
 
+    // Generate a random number and calculate tabuTenureLength
     int randomValue = distribution(generator);
     tabuTenureLength = static_cast<int>(0.6 * numVertexConflicts) + randomValue;
 }
@@ -245,10 +304,14 @@ static void reactTabucol(Solution& solution, const Graph& graph, Parameters& par
     auto duration = std::chrono::duration<float>(params.maxTabucolTime);
     auto start = std::chrono::steady_clock::now();
 
+    // TODO: Create exit condition for if it's already a perfect solution
     while (currentIteration < params.maxTabulcolCycles && std::chrono::steady_clock::now() - start < duration) {
         vector<int> conflictingVertices;
         for (int i = 0; i < params.numVertices; i++) {
             if (conflicts[solution.vertexColors[i]][i] > 0) {
+                //totalConflicts += conflicts[solution->color_of[i]][i];
+                //nodes_in_conflict[0]++;
+                //conf_position[i] = nodes_in_conflict[0];
                 conflictingVertices.push_back(i);
             }
         }
@@ -272,7 +335,7 @@ static void reactTabucol(Solution& solution, const Graph& graph, Parameters& par
                 }
             }
         }
-
+        // TODO: Fix the following if to randomize if all choices are tabu
         bool allTabu = (bestVertex == -1);
         if (allTabu) {
             int v = 0;
@@ -280,16 +343,24 @@ static void reactTabucol(Solution& solution, const Graph& graph, Parameters& par
             while (!params.allowedColors[v][c]) {
                 c++;
             }
+            // if (!params.allowedColors[v][c]) {
+            //     printf("baad\n");
+            // }
             bestValue = solution.conflictingEdges + conflicts[c][v] - conflicts[solution.vertexColors[v]][v];
             bestVertex = v;
             bestColor = c;
         }
+        // END TODO
 
         LocalStep bestStep = {bestVertex, bestColor};
         int newTenure = currentIteration + tabuLength;
         updateSolution(solution, graph, params, bestStep, conflicts, tabuTenure, newTenure);
+        // This is probably worth calculating elsewhere
         int numVertexConflicts = countConflictingVertices(solution, graph, params);
         dynamicTenureUpdate(tabuLength, numVertexConflicts);
+        // TODO: Make reactive tenure work
+        // reactiveTenureUpdate(tabuLength, currentIteration, 
+        // int& totalConflicts, int& maxSolutionValue, int& minSolutionValue, const Parameters& params)
         currentIteration++;
     }
 }
@@ -307,8 +378,8 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
         }
     }
     
-    int cycles = 1;
-    int pheroCounter = 0;
+    int cycles = 1; // starts at 1 accoridng to repo
+    int pheroCounter = 0; // we think it starts at 0 from the repo
     auto duration = std::chrono::duration<float>(params.maxTime); // Run for maxTime seconds
     auto start = std::chrono::steady_clock::now(); // Record the start time
 
@@ -324,9 +395,14 @@ void ColorAnt3_RT(Solution& solution, const Graph& graph, Parameters& params) {
             if (solution.conflictingEdges == 0 || solution.conflictingEdges < bestAntValue) {
                 bestAntValue = optimizationFunction(solution);
                 antBest = solution;
+                //cout << "TESTING TESTING" << endl;
+                // potential optimization
+                // bestCycleSolution.vertexColors = move(solution.vertexColors); // Move the vector
+                // bestCycleSolution.conflictingEdges = solution.conflictingEdges; // Move the conflictingEdges value
             }
         }
         if (bestAntValue < bestSolutionValue) {
+            //printSolution(antBest);
             colonyBest = antBest;
             bestSolutionValue = bestAntValue;
         }
