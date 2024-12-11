@@ -330,7 +330,7 @@ bool RAAco::handleForcedSpills(ColorOptions &options, const std::vector<unsigned
 
   SmallVector<Register, 4> SplitVRegs;
   for(unsigned int i : mustSpill) {
-    errs() << "Spilling VR " << virtualRegs[i] << "\n";
+    LLVM_DEBUG(dbgs() << "Spilling VR " << virtualRegs[i] << "\n");
     auto vr = Register::index2VirtReg(virtualRegs[i]);
     LiveRangeEdit LRE(&LIS->getInterval(vr), SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
     spiller().spill(LRE);
@@ -365,30 +365,25 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
   params.spillCostImportance = SpillCostImportance;
 
   Solution solution(graph.size());
-  errs() << "Adjacency matrix size: " << graph.size() << "x"
-         << (!graph.empty() ? graph[0].size() : 0) << "\n";
-  errs() << "STARTING ACO COLORING\n";
+  LLVM_DEBUG(dbgs() << "Adjacency matrix size: " << graph.size() << "x"
+         << (!graph.empty() ? graph[0].size() : 0) << "\n");
+  LLVM_DEBUG(dbgs() << "STARTING ACO COLORING\n");
   auto start = std::chrono::high_resolution_clock::now();
   ColorAnt3WithSpilling(solution, graph, params);
   auto end = std::chrono::high_resolution_clock::now();
   auto elapsed =
       std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  errs() << "FINISHED ACO COLORING. ELAPSED: " << elapsed.count() << " ms\n";
+  LLVM_DEBUG(dbgs() << "FINISHED ACO COLORING. ELAPSED: " << elapsed.count() << " ms\n");
 
   auto &colors = solution.vertexColors;
 
   ACOColoringResult coloring{};
 
-  //  LLVM_DEBUG(dbgs() << "**** ACO COLORING ****\n");
+  LLVM_DEBUG(dbgs() << "**** ACO COLORING ****\n");
 
   // convert output of ACO to useful format for actual allocation
   for (unsigned int i = 0; i < colors.size(); ++i) {
     Register r{Register::index2VirtReg(virtualRegs[i])};
-    if (MRI->reg_nodbg_empty(r) || !LIS->hasInterval(r)) {
-      //      LLVM_DEBUG(dbgs() << "Encountered unused virtual reg in aco graph:
-      //      " << r << '\n');
-      continue; // is this ok, to just exclude it?
-    }
 
     LiveInterval *virtReg{&LIS->getInterval(r)};
     const TargetRegisterClass *rc = MRI->getRegClass(virtReg->reg());
@@ -421,8 +416,8 @@ bool RAAco::allocateACOColors(const ACOColoringResult &coloring) {
 
   for (const auto &[virtReg, physReg] : coloring) {
     if (!physReg.has_value()) {
-      errs() << "Spilling VR " << Register::virtReg2Index(virtReg->reg())
-             << "\n";
+      LLVM_DEBUG(dbgs() << "Spilling VR " << Register::virtReg2Index(virtReg->reg())
+             << "\n");
       spilled = true;
       LiveRangeEdit LRE(virtReg, SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
       spiller().spill(LRE);
@@ -437,9 +432,9 @@ bool RAAco::allocateACOColors(const ACOColoringResult &coloring) {
     if (physReg.has_value()) {
       if (auto res = Matrix->checkInterference(*virtReg, *physReg);
           res != LiveRegMatrix::InterferenceKind::IK_Free) {
-        errs() << "VR " << Register::virtReg2Index(virtReg->reg())
+        LLVM_DEBUG(dbgs() << "VR " << Register::virtReg2Index(virtReg->reg())
                << " conflicted with assigned reg " << TRI->getName(*physReg)
-               << " Conflict Type: " << res << "\n";
+               << " Conflict Type: " << res << "\n");
         llvm_unreachable(
             "Tried to assign a register with unresolved interference");
       }
@@ -448,7 +443,7 @@ bool RAAco::allocateACOColors(const ACOColoringResult &coloring) {
                         << Register::virtReg2Index(virtReg->reg()) << " to "
                         << TRI->getName(*physReg) << "\n");
     } else {
-      errs() << "Somehow missed a spill\n";
+      LLVM_DEBUG(dbgs() << "Somehow missed a spill\n");
     }
   }
 
@@ -456,19 +451,19 @@ bool RAAco::allocateACOColors(const ACOColoringResult &coloring) {
 }
 
 bool RAAco::runOnMachineFunction(MachineFunction &mf) {
-  errs() << "********** ACO REGISTER ALLOCATION **********\n"
-         << "********** Function: " << mf.getName() << '\n';
+  LLVM_DEBUG(dbgs() << "********** ACO REGISTER ALLOCATION **********\n"
+         << "********** Function: " << mf.getName() << '\n');
 
-  errs() << "Alpha = " << Alpha << "\n";
-  errs() << "Beta = " << Beta << "\n";
-  errs() << "Rho = " << Rho << "\n";
-  errs() << "MaxTime = " << MaxTime << "\n";
-  errs() << "MaxTabucolTime = " << MaxTabucolTime << "\n";
-  errs() << "MaxCycles = " << MaxCycles << "\n";
-  errs() << "MaxTabucolCycles = " << MaxTabucolCycles << "\n";
-  errs() << "NumAnts = " << NumAnts << "\n";
-  errs() << "Gap = " << Gap << "\n";
-  errs() << "SpillCostImportance = " << SpillCostImportance << "\n";
+  LLVM_DEBUG(dbgs() << "Alpha = " << Alpha << "\n");
+  LLVM_DEBUG(dbgs() << "Beta = " << Beta << "\n");
+  LLVM_DEBUG(dbgs() << "Rho = " << Rho << "\n");
+  LLVM_DEBUG(dbgs() << "MaxTime = " << MaxTime << "\n");
+  LLVM_DEBUG(dbgs() << "MaxTabucolTime = " << MaxTabucolTime << "\n");
+  LLVM_DEBUG(dbgs() << "MaxCycles = " << MaxCycles << "\n");
+  LLVM_DEBUG(dbgs() << "MaxTabucolCycles = " << MaxTabucolCycles << "\n");
+  LLVM_DEBUG(dbgs() << "NumAnts = " << NumAnts << "\n");
+  LLVM_DEBUG(dbgs() << "Gap = " << Gap << "\n");
+  LLVM_DEBUG(dbgs() << "SpillCostImportance = " << SpillCostImportance << "\n");
 
   MF = &mf;
   RegAllocBase::init(getAnalysis<VirtRegMapWrapperLegacy>().getVRM(),
