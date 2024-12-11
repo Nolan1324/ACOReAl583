@@ -426,11 +426,12 @@ void ColorAnt3WithSpilling(Solution& solution, const Graph& graph, Parameters& p
         }
     }
 
-    int maxConflicts = 0;
+    float bestSpillScore = 0;
     int spillNode = -1;
     for (size_t i = 0; i < conflictCount.size(); ++i) {
-        if (conflictCount[i] > maxConflicts) {
-            maxConflicts = conflictCount[i];
+        float spillScore = conflictCount[i] * pow(params.spillCosts[i], params.spillCostImportance);
+        if (spillScore > bestSpillScore) {
+            bestSpillScore = spillScore;
             spillNode = i;
         }
     }

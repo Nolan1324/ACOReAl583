@@ -78,6 +78,10 @@ static cl::opt<int>
     Gap("aco-gap", cl::desc("Cycle gap (suggested: sqrt of aco-max-cycles)"),
         cl::init(25));
 
+static cl::opt<double>
+    SpillCostImportance("aco-spill-cost-importance", cl::desc("Spill cost importance"),
+        cl::init(0));
+
 static RegisterRegAlloc acoRegAlloc("aco", "aco register allocator",
                                     createAcoRegisterAllocator);
 
@@ -435,6 +439,7 @@ bool RAAco::handleForcedSpills(ColorOptions &options, const std::vector<unsigned
     auto vr = Register::index2VirtReg(virtualRegs[i]);
     LiveRangeEdit LRE(&LIS->getInterval(vr), SplitVRegs, *MF, *LIS, VRM, this, &DeadRemats);
     spiller().spill(LRE);
+    return true;
   }
 
   return !mustSpill.empty();
@@ -447,6 +452,12 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
   Parameters params(graph.size(), colorOptions[0].size());
   params.allowedColors = colorOptions;
 
+  for(auto virtualReg : virtualRegs) {
+    params.spillCosts.push_back(
+      LIS->getInterval(Register::index2VirtReg(virtualReg)).weight()
+    );
+  }
+
   params.alpha = Alpha;
   params.beta = Beta;
   params.rho = Rho;
@@ -456,6 +467,7 @@ RAAco::doACOColoring(Graph &graph, ColorOptions &colorOptions,
   params.maxTabulcolCycles = MaxTabucolCycles;
   params.numAnts = NumAnts;
   params.gap = Gap;
+  params.spillCostImportance = SpillCostImportance;
 
   Solution solution(graph.size());
   errs() << "Adjacency matrix size: " << graph.size() << "x"
@@ -580,6 +592,7 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   errs() << "MaxTabucolCycles = " << MaxTabucolCycles << "\n";
   errs() << "NumAnts = " << NumAnts << "\n";
   errs() << "Gap = " << Gap << "\n";
+  errs() << "SpillCostImportance = " << SpillCostImportance << "\n";
 
   MF = &mf;
   RegAllocBase::init(getAnalysis<VirtRegMapWrapperLegacy>().getVRM(),
@@ -594,7 +607,7 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
   SpillerInstance.reset(createInlineSpiller(*this, *MF, *VRM, VRAI));
 
   // ACO Register Allocation
-  bool spillsOccurred{false};
+  bool spillsOccurred{true};
 
   do {
     std::vector<unsigned int> virtualRegs = makeVirtualRegsList();
@@ -615,6 +628,7 @@ bool RAAco::runOnMachineFunction(MachineFunction &mf) {
 
     if(handleForcedSpills(options, virtualRegs)) {
       Matrix->invalidateVirtRegs();
+      spillsOccurred = true;
       continue;
     }
     
