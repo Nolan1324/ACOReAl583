@@ -172,6 +172,9 @@ namespace llvm {
   /// Basic register allocator.
   extern char &RABasicID;
 
+  /// ACO register allocator.
+  extern char &RAAcoID;
+
   /// VirtRegRewriter pass. Rewrite virtual registers to physical registers as
   /// assigned in VirtRegMap.
   extern char &VirtRegRewriterID;
@@ -219,6 +222,10 @@ namespace llvm {
   ///
   FunctionPass *createGreedyRegisterAllocator();
   FunctionPass *createGreedyRegisterAllocator(RegAllocFilterFunc F);
+
+  /// ACO
+  FunctionPass *createAcoRegisterAllocator();
+  FunctionPass *createAcoRegisterAllocator(RegAllocFilterFunc F);
 
   /// PBQPRegisterAllocation Pass - This pass implements the Partitioned Boolean
   /// Quadratic Prograaming (PBQP) based register allocator.

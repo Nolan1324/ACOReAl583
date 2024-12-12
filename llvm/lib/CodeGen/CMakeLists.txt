@@ -23,6 +23,7 @@ if (DEFINED LLVM_HAVE_TF_AOT OR LLVM_HAVE_TFLITE)
 endif()
 
 add_llvm_component_library(LLVMCodeGen
+  ACOGraphColoring.cpp
   AggressiveAntiDepBreaker.cpp
   AllocationOrder.cpp
   Analysis.cpp
@@ -179,6 +180,7 @@ add_llvm_component_library(LLVMCodeGen
   RDFLiveness.cpp
   RDFRegisters.cpp
   ReachingDefAnalysis.cpp
+  RegAllocACO.cpp
   RegAllocBase.cpp
   RegAllocBasic.cpp
   RegAllocEvictionAdvisor.cpp

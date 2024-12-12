@@ -36,6 +36,7 @@ namespace {
       (void) llvm::createBasicRegisterAllocator();
       (void) llvm::createGreedyRegisterAllocator();
       (void) llvm::createDefaultPBQPRegisterAllocator();
+      (void) llvm::createAcoRegisterAllocator();
 
       (void)llvm::createBURRListDAGScheduler(nullptr,
                                              llvm::CodeGenOptLevel::Default);
